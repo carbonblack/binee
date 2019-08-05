@@ -50,7 +50,7 @@ root@e8302cbe1613:/# cd /trml/go/src/binee
 
 Download Golang dependencies and build Binee
 
-``
+```
 root@2b0fee41629f:~/go/src/binee# go get
 root@2b0fee41629f:~/go/src/binee# go build
 ```
