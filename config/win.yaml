@@ -1,0 +1,8 @@
+root: "os/win10_32/"
+code_page_identifier: 0x4e4
+registry:
+    HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\PINF: ""
+    HKEY_CURRENT_USER\Software\AutoIt v3\AutoIt\Include: "yep"
+    HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Arbiters\InaccessibleRange\Psi: "PhysicalAddress"
+    HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Arbiters\InaccessibleRange\Root: "PhysicalAddress"
+    HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Arbiters\InaccessibleRange\PhysicalAddress: "hex(a):48,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01,00,00,00,00,00,00,00,01,00,00,00,00,03,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,00,01,00,ff,ff,ff,ff,ff,ff,ff,ff"

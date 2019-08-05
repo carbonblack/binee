@@ -1,0 +1,16 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.filters
+*.user
+binee
+out.txt
+*.out
+test*.txt
+*.test
+*.swp
+.DS_Store
+temp/
+os/
