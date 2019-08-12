@@ -22,6 +22,12 @@ The goals Binee tries to solve are the following:
 solely responsible for obtaining any necessary rights and licenses from
 Microsoft.**
 
+## DEF CON 27 Materials
+
+[https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee.pdf](Slides)
+
+[https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee%20Demo.mp4](Demo Video)
+
 # Setup and developing in Docker container
 
 If you are running Binee on Microsoft Windows, you can skip the mock file system step. 
