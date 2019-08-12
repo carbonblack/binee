@@ -42,16 +42,10 @@ directory, you can move onto the compiling and running step.
 
 ## Compiling and running
 
-Build with the following docker command `docker build -t trml-binee .`
+Build with the following docker command `docker build -t binee .`
 
 ```
-docker run -it -v $PWD:/trml/go/src/binee trml-binee bash
-```
-
-Once inside of the Docker container, navigate to the mapped binee directory.
-
-```
-root@e8302cbe1613:/# cd /trml/go/src/binee
+docker run -it -v $PWD:/bineedev/go/src/binee binee bash
 ```
 
 Download Golang dependencies and build Binee
