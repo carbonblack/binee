@@ -24,9 +24,9 @@ Microsoft.**
 
 ## DEF CON 27 Materials
 
-[https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee.pdf](Slides)
+[slides](https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee.pdd)
 
-[https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee%20Demo.mp4](Demo Video)
+[demo video](https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee%20Demo.mp4)
 
 # Setup and developing in Docker container
 
