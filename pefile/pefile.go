@@ -153,7 +153,7 @@ type ImportInfo struct {
 	DllName  string
 	FuncName string
 	Offset   uint64
-    Ordinal  uint16
+	Ordinal  uint16
 }
 
 type PeFile struct {
@@ -595,6 +595,10 @@ func (self *PeFile) readImports() {
 
 			for ; ; import_thunk += 4 {
 
+				if import_thunk+4 > len(section.Raw) {
+					break
+				}
+
 				// get first thunk
 				if thunk1 = binary.LittleEndian.Uint32(section.Raw[import_thunk : import_thunk+4]); thunk1 == 0 {
 					break
@@ -602,18 +606,18 @@ func (self *PeFile) readImports() {
 
 				if thunk1&0x80000000 > 0 {
 					// parse by ordinal
-                    func_name := ""
-                    ord := uint16(thunk1 & 0xffff)
+					func_name := ""
+					ord := uint16(thunk1 & 0xffff)
 					self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), ord})
-                    thunk2 += 4
+					thunk2 += 4
 				} else {
 					// might be in a different section
-					sec := self.getSectionByRva(thunk1 + 2)
-
-					v := thunk1 + 2 - sec.VirtualAddress
-					func_name := readString(sec.Raw[v:])
-					self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
-					thunk2 += 4
+					if sec := self.getSectionByRva(thunk1 + 2); sec != nil {
+						v := thunk1 + 2 - sec.VirtualAddress
+						func_name := readString(sec.Raw[v:])
+						self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
+						thunk2 += 4
+					}
 				}
 
 			}
