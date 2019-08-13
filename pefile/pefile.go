@@ -498,18 +498,21 @@ func (self *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) er
 		return errors.New(fmt.Sprintf("Error setting address for %s.%s to %x, section not found.", importInfo.DllName, importInfo.FuncName, importInfo.Offset))
 	}
 
+	//fmt.Println(importInfo)
+	//fmt.Printf("0x%x\n", importInfo.Offset)
 	// update the Raw bytes with the new address
 	if self.PeType == Pe32 {
 		buf := make([]byte, 4)
 		binary.LittleEndian.PutUint32(buf, uint32(realAddr))
-		thunkAddress := uint16(importInfo.Offset) & 0xffff
+		thunkAddress := uint16(importInfo.Offset) & 0xfff
+		//fmt.Printf("0x%x\n", thunkAddress)
 		for i := 0; i < 4; i++ {
 			section.Raw[int(thunkAddress)+i] = buf[i]
 		}
 	} else {
 		buf := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buf, realAddr)
-		thunkAddress := uint16(importInfo.Offset) & 0xffff
+		thunkAddress := uint16(importInfo.Offset) & 0xfff
 		for i := 0; i < 8; i++ {
 			section.Raw[int(thunkAddress)+i] = buf[i]
 		}
@@ -610,6 +613,10 @@ func (self *PeFile) readImports() {
 
 			for ; ; import_thunk += 4 {
 
+				if import_thunk+4 > len(section.Raw) {
+					break
+				}
+
 				// get first thunk
 				if thunk1 = binary.LittleEndian.Uint32(section.Raw[import_thunk : import_thunk+4]); thunk1 == 0 {
 					break
@@ -623,12 +630,12 @@ func (self *PeFile) readImports() {
 					thunk2 += 4
 				} else {
 					// might be in a different section
-					sec := self.getSectionByRva(thunk1 + 2)
-
-					v := thunk1 + 2 - sec.VirtualAddress
-					func_name := readString(sec.Raw[v:])
-					self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
-					thunk2 += 4
+					if sec := self.getSectionByRva(thunk1 + 2); sec != nil {
+						v := thunk1 + 2 - sec.VirtualAddress
+						func_name := readString(sec.Raw[v:])
+						self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
+						thunk2 += 4
+					}
 				}
 
 			}
