@@ -833,7 +833,7 @@ type RelocationBlock struct {
 	Size    uint32
 }
 
-func min(a, b int) {
+func min(a, b int) int {
 	if a < b {
 		return a
 	} else {
@@ -845,13 +845,13 @@ func (self *PeFile) section(index int) *Section {
 	var rva uint32
 
 	if self.PeType == Pe32 {
-		if index < min(16, self.OptionalHeader.(*OptionalHeader32).NumberOfRvaAndSizes) {
+		if index < min(16, int(self.OptionalHeader.(*OptionalHeader32).NumberOfRvaAndSizes)) {
 			rva = self.OptionalHeader.(*OptionalHeader32).DataDirectories[index].VirtualAddress
 		} else {
 			return nil
 		}
 	} else {
-		if index < min(16, self.OptionalHeader.(*OptionalHeader32).NumberOfRvaAndSizes) {
+		if index < min(16, int(self.OptionalHeader.(*OptionalHeader32P).NumberOfRvaAndSizes)) {
 			rva = self.OptionalHeader.(*OptionalHeader32P).DataDirectories[index].VirtualAddress
 		} else {
 			return nil
