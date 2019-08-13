@@ -47,7 +47,7 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 	temp := strings.Replace(path, "c:", emu.Opts.Root, 1)
 	temp = strings.Replace(temp, "C:", emu.Opts.Root, 1)
 	temp = strings.Replace(temp, "\\", "/", -1)
-	fd.Path = temp
+	fd.Path = filepath.Clean(temp)
 
 	//if file is open for writing, do all writes in temp folder
 	if access&GENERIC_WRITE == GENERIC_WRITE {
