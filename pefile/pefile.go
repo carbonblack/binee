@@ -257,16 +257,31 @@ func LoadPeFile(path string) (*PeFile, error) {
 		return nil, errors.New(fmt.Sprintf("Error seeking to optionalHeader in file %s: %v", path, err))
 	}
 
+	// check if pe or pe+, read 2 bytes to get Magic then seek backward two bytes
+	var _magic uint16
+	if err := binary.Read(r, binary.LittleEndian, &_magic); err != nil {
+		return nil, errors.New(fmt.Sprintf("Error reading in magic"))
+	} else {
+		if _magic == 0x10b {
+			pe.PeType = Pe32
+		} else {
+			pe.PeType = Pe32p
+		}
+
+		if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
+			return nil, errors.New(fmt.Sprintf("Error seeking to optionalHeader in file %s: %v", path, err))
+		}
+
+	}
+
 	// copy the optional headers into their respective structs
-	if uint16(binary.Size(OptionalHeader32{})) == pe.CoffHeader.SizeOfOptionalHeader {
+	if pe.PeType == Pe32 {
 		pe.OptionalHeader = &OptionalHeader32{}
-		pe.PeType = Pe32
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
 			return nil, errors.New(fmt.Sprintf("Error reading optionalHeader32 in file %s: %v", path, err))
 		}
 	} else {
 		pe.OptionalHeader = &OptionalHeader32P{}
-		pe.PeType = Pe32p
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
 			return nil, errors.New(fmt.Sprintf("Error reading optionalHeader32p in file %s: %v", path, err))
 		}
@@ -822,12 +837,29 @@ type RelocationBlock struct {
 	Size    uint32
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}
+
 func (self *PeFile) section(index int) *Section {
 	var rva uint32
+
 	if self.PeType == Pe32 {
-		rva = self.OptionalHeader.(*OptionalHeader32).DataDirectories[index].VirtualAddress
+		if index < min(16, int(self.OptionalHeader.(*OptionalHeader32).NumberOfRvaAndSizes)) {
+			rva = self.OptionalHeader.(*OptionalHeader32).DataDirectories[index].VirtualAddress
+		} else {
+			return nil
+		}
 	} else {
-		rva = self.OptionalHeader.(*OptionalHeader32P).DataDirectories[index].VirtualAddress
+		if index < min(16, int(self.OptionalHeader.(*OptionalHeader32P).NumberOfRvaAndSizes)) {
+			rva = self.OptionalHeader.(*OptionalHeader32P).DataDirectories[index].VirtualAddress
+		} else {
+			return nil
+		}
 	}
 
 	for i := 0; i < int(self.CoffHeader.NumberOfSections); i++ {
