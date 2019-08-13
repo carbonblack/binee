@@ -49,6 +49,10 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 	temp = strings.Replace(temp, "\\", "/", -1)
 	fd.Path = temp
 
+	if strings.HasPrefix(fd.Path, emu.Opts.Root) {
+		return nil, fmt.Errorf("Invalid path, file not found")
+	}
+
 	//if file is open for writing, do all writes in temp folder
 	if access&GENERIC_WRITE == GENERIC_WRITE {
 		fd.Path = "temp/" + path
