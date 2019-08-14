@@ -11,6 +11,7 @@ type JsonOutput struct {
 	Addr       int           `json:"addr"`
 	Size       int           `json:"size"`
 	Opcode     string        `json:"opcode"`
+	Lib        string        `json:"lib"`
 	Fn         string        `json:"fn"`
 	Parameters []string      `json:"parameters"`
 	Values     []interface{} `json:"values"`
