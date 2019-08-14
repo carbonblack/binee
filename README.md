@@ -6,7 +6,7 @@ environment for determining a binaries side effects on the system.
 
 The goals Binee tries to solve are the following:
 
-1. Realistic loading of a PE file and its required dependencies. The users land
+1. Realistic loading of a PE file and its required dependencies. The userland
    memory should look as close to a real execution as possible.
 2. Easy to use hooking framework. We want to create a flexible hooking
    framework that allows the analyst to rapidly implement new hooks and capture
