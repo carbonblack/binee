@@ -112,7 +112,15 @@ func main() {
 
 	// if apiset dump option, load apisetschema.dll and dump all apisets
 	if options.ApisetDump {
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", "os/win10_32/windows/system32"}, "apisetschema.dll")
+		rootFolder := "os/win10_32/"
+		if options.Config != "" {
+			conf, err := util.ReadGenericConfig(options.Config)
+			if err != nil {
+				log.Fatal(err)
+			}
+			rootFolder = conf.Root
+		}
+		path, err := util.SearchFile([]string{"C:\\Windows\\System32", rootFolder + "windows/system32"}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -128,7 +136,15 @@ func main() {
 
 	// if apiset lookup, load apisetschema.dll and look up the apiset name
 	if options.ApisetLookup != "" {
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", "os/win10_32/windows/system32"}, "apisetschema.dll")
+		rootFolder := "os/win10_32/"
+		if options.Config != "" {
+			conf, err := util.ReadGenericConfig(options.Config)
+			if err != nil {
+				log.Fatal(err)
+			}
+			rootFolder = conf.Root
+		}
+		path, err := util.SearchFile([]string{"C:\\Windows\\System32", rootFolder + "windows/system32"}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
