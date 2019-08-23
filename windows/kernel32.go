@@ -634,7 +634,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"lpCriticalSection", "dwSpinCount"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "InitializeSListHead", &Hook{Parameters: []string{}})
+	emu.AddHook("", "InitializeSListHead", &Hook{Parameters: []string{"ListHead"}})
 	emu.AddHook("", "IsDebuggerPresent", &Hook{Parameters: []string{}, Fn: SkipFunctionStdCall(true, 0x0)})
 	emu.AddHook("", "IsValidCodePage", &Hook{
 		Parameters: []string{"CodePage"},

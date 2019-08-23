@@ -47,7 +47,10 @@ func NtdllHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, STATUS_SUCCESS),
 	}
 	emu.AddHook("", "_aullshr", &Hook{
-		Parameters: []string{"a", "b"},
+		Parameters: []string{"A", "B"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[0]>>in.Args[1])(emu, in)
+		},
 	})
 	emu.AddHook("", "ApiSetQueryApiSetPresence", &Hook{
 		Parameters: []string{"Namespace", "Present"},
