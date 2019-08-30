@@ -10,4 +10,9 @@ func LibloaderapiHooks(emu *WinEmulator) {
 		Parameters: []string{"ParentModuleBase", "DelayloadedDescriptor", "FailureDllHook", "FailureSystemHook", "ThunkAddress", "Flags"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
+
+	emu.AddHook("", "SetDefaultDllDirectories", &Hook{
+		Parameters: []string{"DirectoryFlags"},
+		Fn:         SkipFunctionStdCall(true, 0x1),
+	})
 }
