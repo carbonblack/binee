@@ -14,9 +14,9 @@ func SearchFile(searchPaths []string, filename string) (string, error) {
 		if _, err := os.Stat(searchPaths[i] + "/" + strings.ToLower(filename)); err == nil {
 			return searchPaths[i] + "/" + strings.ToLower(filename), nil
 		}
-        if _, err := os.Stat(searchPaths[i] + "/" + filename); err == nil {
-            return searchPaths[i] + "/" + filename, nil
-        }
+		if _, err := os.Stat(searchPaths[i] + "/" + filename); err == nil {
+			return searchPaths[i] + "/" + filename, nil
+		}
 	}
 
 	return "", errors.New(fmt.Sprintf("file '%s' not found", filename))
@@ -77,31 +77,30 @@ func WinWCharToAscii(w []byte) string {
 
 // ParseFormatter will take a format string specifier and returns the individual formatters
 func ParseFormatter(format string) []string {
-    types := "diufFeEgGxXosScCpaAn"
+	types := "diufFeEgGxXosScCpaAn"
 
-    // pattern = %(%|[^%diufFeEgGxXosScCpaAn]*?[diufFeEgGxXosScCpaAn])
-    // percent followed by either
-    //   - a percent
-    //   - a bunch of characters that are NOT a format specifier, followed by a specifier
-    pattern := fmt.Sprintf("%%(%%|[^%%%s]*?[%s])", types, types)
+	// pattern = %(%|[^%diufFeEgGxXosScCpaAn]*?[diufFeEgGxXosScCpaAn])
+	// percent followed by either
+	//   - a percent
+	//   - a bunch of characters that are NOT a format specifier, followed by a specifier
+	pattern := fmt.Sprintf("%%(%%|[^%%%s]*?[%s])", types, types)
 
-    re := regexp.MustCompile(pattern)
+	re := regexp.MustCompile(pattern)
 
-    match_indices := re.FindAllStringIndex(format, -1)
-    var fmts []string
-    for _, match_index := range match_indices {
-        f_str := format[match_index[0]:match_index[1]]
-        // last character is the format type
-        f_type := string(f_str[len(f_str) - 1])
-        if f_type == "%" {
-            continue
-        }
-        fmts = append(fmts, f_type)
-    }
-    return fmts
+	match_indices := re.FindAllStringIndex(format, -1)
+	var fmts []string
+	for _, match_index := range match_indices {
+		f_str := format[match_index[0]:match_index[1]]
+		// last character is the format type
+		f_type := string(f_str[len(f_str)-1])
+		if f_type == "%" {
+			continue
+		}
+		fmts = append(fmts, f_type)
+	}
+	return fmts
 }
 
 func RoundUp(addr, mask uint64) uint64 {
-    return (addr + mask) & ^mask
+	return (addr + mask) & ^mask
 }
-

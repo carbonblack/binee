@@ -530,7 +530,7 @@ func (self *PeFile) ImportedDlls() []string {
 	}
 
 	temp2 := make([]string, 0, len(temp))
-	for k, _ := range temp {
+	for k := range temp {
 		temp2 = append(temp2, k)
 	}
 

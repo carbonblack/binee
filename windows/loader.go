@@ -804,7 +804,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 	ldrList = append(ldrList, "ntdll.dll")
 	ldrList = append(ldrList, "kernel32.dll")
 	//set proper order for LdrEntry creation
-	for key, _ := range peCheck {
+	for key := range peCheck {
 		if key != "ntdll.dll" && key != "kernel32.dll" {
 			ldrList = append(ldrList, key)
 		}
