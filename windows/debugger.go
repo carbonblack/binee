@@ -1,7 +1,7 @@
 package windows
 
 import "fmt"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 import "strings"
 import "os"
 import "github.com/chzyer/readline"

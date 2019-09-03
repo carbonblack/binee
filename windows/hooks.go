@@ -3,7 +3,7 @@ package windows
 import "encoding/binary"
 import "runtime"
 import "fmt"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 import "strings"
 import "bytes"
 import "encoding/json"

@@ -1,7 +1,7 @@
 package core
 
 import "fmt"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 type HeapEntry struct {
 	Address uint64

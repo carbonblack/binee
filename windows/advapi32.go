@@ -1,7 +1,7 @@
 package windows
 
 import "encoding/binary"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 type ServiceTableEntry struct {
 	ServiceName string

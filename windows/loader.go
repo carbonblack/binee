@@ -5,8 +5,8 @@ import "os"
 import "bytes"
 import "strings"
 import "encoding/binary"
-import "binee/pefile"
-import "binee/util"
+import "github.com/carbonblack/binee/pefile"
+import "github.com/carbonblack/binee/util"
 import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
 const (

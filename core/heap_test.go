@@ -1,6 +1,6 @@
 package core_test
 
-import core "binee/core"
+import core "github.com/carbonblack/binee/core"
 import "testing"
 
 func TestHeapFree(t *testing.T) {

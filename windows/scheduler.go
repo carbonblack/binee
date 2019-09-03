@@ -1,7 +1,7 @@
 package windows
 
 import "fmt"
-import "binee/core"
+import "github.com/carbonblack/binee/core"
 import "encoding/binary"
 
 type Thread struct {
