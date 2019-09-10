@@ -1,6 +1,6 @@
 package windows_test
 
-import "github.com/carbonblack/ee/windows"
+import "github.com/carbonblack/binee/windows"
 import "testing"
 
 func makeRegistry() *windows.Registry {
