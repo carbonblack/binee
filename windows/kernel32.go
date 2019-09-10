@@ -5,8 +5,8 @@ import "bytes"
 import "time"
 import "encoding/binary"
 import "path/filepath"
-import "binee/util"
-import "binee/pefile"
+import "github.com/carbonblack/binee/util"
+import "github.com/carbonblack/binee/pefile"
 
 type StartupInfo struct {
 	Cb          int32

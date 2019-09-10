@@ -1,6 +1,6 @@
 package windows
 
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 func WdmHooks(emu *WinEmulator) {
 	emu.AddHook("", "InterlockedExchange", &Hook{

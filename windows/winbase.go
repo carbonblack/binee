@@ -1,8 +1,9 @@
 package windows
 
 import (
-	"binee/util"
 	"strings"
+
+	"github.com/carbonblack/binee/util"
 )
 
 func WinbaseHooks(emu *WinEmulator) {

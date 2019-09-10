@@ -1,6 +1,6 @@
 package windows_test
 
-import "binee/windows"
+import "github.com/carbonblack/binee/windows"
 import "testing"
 
 func TestLookupFunctionByAddress(t *testing.T) {

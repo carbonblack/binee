@@ -2,7 +2,7 @@ package windows
 
 import "time"
 import "strconv"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 //import "fmt"
 

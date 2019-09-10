@@ -7,7 +7,7 @@ import "fmt"
 import "encoding/binary"
 import "bytes"
 import "errors"
-import "binee/pefile"
+import "github.com/carbonblack/binee/pefile"
 import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
 // StructWrite, given a struct and a unicorn memory address. Convert the struct to a byte

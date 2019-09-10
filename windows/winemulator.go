@@ -4,14 +4,14 @@ import "gopkg.in/yaml.v2"
 import "os"
 import "io/ioutil"
 import "time"
-import "binee/pefile"
+import "github.com/carbonblack/binee/pefile"
 import "encoding/binary"
 
 //import "regexp"
 import cs "github.com/kgwinnup/gapstone"
 import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 import "sort"
-import core "binee/core"
+import core "github.com/carbonblack/binee/core"
 
 type Env struct {
 	Key   string `yaml:"key"`

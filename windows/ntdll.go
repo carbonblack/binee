@@ -3,7 +3,7 @@ package windows
 import "fmt"
 import "io/ioutil"
 import "encoding/binary"
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
 func allocateVirtualMemory(emu *WinEmulator, in *Instruction) bool {

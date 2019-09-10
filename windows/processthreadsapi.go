@@ -1,6 +1,6 @@
 package windows
 
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 func ProcessthreadsapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "CreateProcessA", &Hook{

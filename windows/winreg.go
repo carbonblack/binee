@@ -1,6 +1,6 @@
 package windows
 
-import "binee/util"
+import "github.com/carbonblack/binee/util"
 
 func newRegKeyHandle(handle uint64, hkey string, name string) *Handle {
 	return &Handle{
