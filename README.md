@@ -45,21 +45,21 @@ directory, you can move onto the compiling and running step.
 Build with the following docker command `docker build -t binee .`
 
 ```
-docker run -it -v $PWD:/bineedev/go/src/binee binee bash
+docker run -it -v $PWD:/bineedev/go/src/github.com/carbonblack/binee binee bash
 ```
 
 Download Golang dependencies and build Binee
 
 ```
-root@2b0fee41629f:~/go/src/binee# go get
-root@2b0fee41629f:~/go/src/binee# go build
+root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# go get
+root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# go build
 ```
 
 At this point you should be able to execute binee within the Docker container
 and see the usage menu.
 
 ```
-root@2b0fee41629f:~/go/src/binee# ./binee -v
+root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# ./binee -v
 usage ./binee [-aAhvveis] [FILE] [ARGS]
   -a <apiset dll name>     Returns the real dll name given an apiset dll
   -A                       List all apisets and their mappings
@@ -76,7 +76,7 @@ configured properly, you should be able to execute all the PE files within the
 `tests/` directory.
 
 ```
-root@2b0fee41629f:~/go/src/binee# ./binee tests/ConsoleApplication1_x86.exe
+root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# ./binee tests/ConsoleApplication1_x86.exe
 0x20735900: GetSystemTimeAsFileTime(lpSystemTimeAsFileTime = 0xb000ffe0) = 0xb000ffe0
 0x2072a310: GetCurrentThreadId() = 0x0
 0x20734100: GetCurrentProcessId() = 0x2001
