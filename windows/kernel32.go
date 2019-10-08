@@ -830,6 +830,20 @@ func KernelbaseHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "NlsValidateLocale", &Hook{Parameters: []string{"*Unknown*"}})
 	emu.AddHook("", "PathCchRemoveFileSpec", &Hook{Parameters: []string{"pszPath", "cchPath"}})
+	emu.AddHook("", "SearchPathA", &Hook{
+		Parameters: []string{"a:lpPath", "a:lpFileName", "a:lpExtension", "nBufferLength", "lpBuffer", "lpFilePart"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			mb := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			str, err := util.SearchFile(emu.SearchPath, mb)
+			if err != nil {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			if uint64(len(str)) > in.Args[3] {
+				return SkipFunctionStdCall(true, in.Args[3])(emu, in)
+			}
+			return SkipFunctionStdCall(true, uint64(len(str)))(emu, in)
+		},
+	})
 	emu.AddHook("", "WideCharToMultiByte", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "w:lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
