@@ -25,7 +25,7 @@ RUN \
 RUN \
   wget https://dl.google.com/go/go1.11.1.linux-amd64.tar.gz && \
   tar -C /usr/local -xzf go1.11.1.linux-amd64.tar.gz && \
-  mkdir -p /bineedev/go/src/binee
+  mkdir -p /bineedev/go/src/github.com/carbonblack/binee
 
 ENV HOME /bineedev
 
@@ -39,7 +39,7 @@ RUN \
 
 ENV TERM=xterm
 
-WORKDIR /bineedev/go/src/binee
+WORKDIR /bineedev/go/src/github.com/carbonblack/binee
 
 CMD \
   bash
