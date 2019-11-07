@@ -22,6 +22,12 @@ The goals Binee tries to solve are the following:
 solely responsible for obtaining any necessary rights and licenses from
 Microsoft.**
 
+## Development and Support
+
+Please feel free to submit github issues or if you want to talk with us directly, come join is in slack
+
+[slack workspace](https://join.slack.com/t/cb-binee/shared_invite/enQtODAwMjM5NzU4MDY4LTE3ZjJkY2FiNmIwMjExOTcwZDAxMjllZjdhODExNDZiZGFkOTJkZTU4YzY0YzVmMTc0N2ExMmYzMzg5MjNhOWU)
+
 ## DEF CON 27 Materials
 
 [slides](https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee.pdf)
