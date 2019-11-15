@@ -54,12 +54,13 @@ Build with the following docker command `docker build -t binee .`
 docker run -it -v $PWD:/bineedev/go/src/github.com/carbonblack/binee binee bash
 ```
 
-Download Golang dependencies and build Binee
+Download Golang dependencies and build Binee 
 
 ```
-root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# go get
 root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# go build
 ```
+_Note: presence of go.mod file will direct the build utility to collect dependencies upon build, and also allow for the repository to be cloned and developed at any path (regardless of `$GOPATH`) directory_
+
 
 At this point you should be able to execute binee within the Docker container
 and see the usage menu.
