@@ -28,6 +28,8 @@ Microsoft.**
 
 [demo video](https://github.com/carbonblack/binee/blob/defcon27/Kyle%20Gwinnup%20-%20Next%20Generation%20Process%20Emulation%20with%20Binee%20Demo.mp4)
 
+[presentation](https://www.youtube.com/watch?v=z4OvVFw5pYI)
+
 # Setup and developing in Docker container
 
 If you are running Binee on Microsoft Windows, you can skip the mock file system step. 
