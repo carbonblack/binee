@@ -1,15 +1,17 @@
 package pefile
 
-import "os"
-import "errors"
-import "strings"
-import "io"
-import "log"
-import "bytes"
-import "encoding/binary"
-import "fmt"
-import "unicode/utf16"
-import "unicode/utf8"
+import (
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"strings"
+	"unicode/utf16"
+	"unicode/utf8"
+)
 
 type PeType int
 
@@ -328,9 +330,12 @@ func LoadPeFile(path string) (*PeFile, error) {
 		if _, err = r.Seek(int64(temp.Offset), io.SeekStart); err != nil {
 			return nil, errors.New(fmt.Sprintf("Error seeking offset in section[%s] of file %s: %v", pe.Sections[i].Name, path, err))
 		}
-
 		raw := make([]byte, temp.Size)
 		if _, err = r.Read(raw); err != nil {
+			if err == io.EOF {
+				pe.Sections[i].Raw = nil
+				continue
+			}
 			return nil, errors.New(fmt.Sprintf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, path, err))
 		}
 		pe.Sections[i].Raw = raw
