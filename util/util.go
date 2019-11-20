@@ -1,11 +1,12 @@
 package util
 
-import "os"
-import "fmt"
-import "errors"
-import "strings"
-import "math/rand"
-import "regexp"
+import (
+	"fmt"
+	"math/rand"
+	"os"
+	"regexp"
+	"strings"
+)
 
 // SearchFile is the primary function for searching the host/mock system for
 // files for use in the emulator
@@ -19,7 +20,7 @@ func SearchFile(searchPaths []string, filename string) (string, error) {
 		}
 	}
 
-	return "", errors.New(fmt.Sprintf("file '%s' not found", filename))
+	return "", fmt.Errorf("file '%s' not found", filename)
 }
 
 // NewGdtEntry initializes a gdt table entry

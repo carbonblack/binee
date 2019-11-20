@@ -2,13 +2,16 @@
 // emulator that are independent from any of the process emulation happening
 package util
 
-import "strings"
-import "fmt"
-import "encoding/binary"
-import "bytes"
-import "errors"
-import "github.com/carbonblack/binee/pefile"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"strings"
+
+	"github.com/carbonblack/binee/pefile"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 // StructWrite, given a struct and a unicorn memory address. Convert the struct to a byte
 // array and write that byte array to the address in the unicorn memory
@@ -209,18 +212,18 @@ func ReadPeFile(u uc.Unicorn, addr uint64) (pefile.PeFile, error) {
 	// read DosHeader
 	pe.DosHeader = &pefile.DosHeader{}
 	if buf, err = u.MemRead(addr, uint64(binary.Size(pe.DosHeader))); err != nil {
-		return pe, errors.New(fmt.Sprintf("error reading DosHeader from unicorn memory"))
+		return pe, fmt.Errorf("error reading DosHeader from unicorn memory")
 	}
 	if err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, pe.DosHeader); err != nil {
-		return pe, errors.New(fmt.Sprintf("error writing DosHeader bytes to structure"))
+		return pe, fmt.Errorf("error writing DosHeader bytes to structure")
 	}
 
 	pe.CoffHeader = &pefile.CoffHeader{}
 	if buf, err = u.MemRead(uint64(pe.DosHeader.AddressExeHeader)+4, uint64(binary.Size(pe.CoffHeader))); err != nil {
-		return pe, errors.New(fmt.Sprintf("error reading CoffHeader from unicorn memory"))
+		return pe, fmt.Errorf("error reading CoffHeader from unicorn memory")
 	}
 	if err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, pe.CoffHeader); err != nil {
-		return pe, errors.New(fmt.Sprintf("error writing CoffHeader bytes to structure"))
+		return pe, fmt.Errorf("error writing CoffHeader bytes to structure")
 	}
 
 	optionalHeaderAddr := addr + uint64(pe.DosHeader.AddressExeHeader) + 4 + uint64(binary.Size(pe.CoffHeader))
@@ -229,10 +232,10 @@ func ReadPeFile(u uc.Unicorn, addr uint64) (pefile.PeFile, error) {
 		pe.PeType = pefile.Pe32
 		pe.OptionalHeader = &pefile.OptionalHeader32{}
 		if buf, err = u.MemRead(optionalHeaderAddr, uint64(binary.Size(pe.OptionalHeader))); err != nil {
-			return pe, errors.New(fmt.Sprintf("error reading OptionalHeader32 from unicorn memory"))
+			return pe, fmt.Errorf("error reading OptionalHeader32 from unicorn memory")
 		}
 		if err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, pe.OptionalHeader); err != nil {
-			return pe, errors.New(fmt.Sprintf("error writing OptionalHeader32 bytes to structure"))
+			return pe, fmt.Errorf("error writing OptionalHeader32 bytes to structure")
 		}
 	}
 
