@@ -3,7 +3,6 @@ package pefile
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -214,7 +213,7 @@ func (self *PeFile) EntryPoint() uint32 {
 func LoadPeFile(path string) (*PeFile, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error opening %s file: %v", path, err))
+		return nil, fmt.Errorf("Error opening %s file: %v", path, err)
 	}
 
 	// create PeFile struct
@@ -223,14 +222,14 @@ func LoadPeFile(path string) (*PeFile, error) {
 	// get size of file, then seek back to start to reset the cursor
 	size, err := file.Seek(0, 2)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error getting size of file %s: %v", path, err))
+		return nil, fmt.Errorf("Error getting size of file %s: %v", path, err)
 	}
 	file.Seek(0, 0)
 
 	// read the file into data buffer
 	data := make([]byte, size)
 	if _, err = file.Read(data); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error copying file %s into buffer: %v", path, err))
+		return nil, fmt.Errorf("Error copying file %s into buffer: %v", path, err)
 	}
 	pe.Size = size
 
@@ -240,29 +239,29 @@ func LoadPeFile(path string) (*PeFile, error) {
 	// read in DosHeader
 	pe.DosHeader = &DosHeader{}
 	if err = binary.Read(r, binary.LittleEndian, pe.DosHeader); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading dosHeader from file %s: %v", path, err))
+		return nil, fmt.Errorf("Error reading dosHeader from file %s: %v", path, err)
 	}
 
 	// move offset to CoffHeader
 	if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4, io.SeekStart); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error seeking to coffHeader in file %s: %v", path, err))
+		return nil, fmt.Errorf("Error seeking to coffHeader in file %s: %v", path, err)
 	}
 
 	// read CoffHeader into struct
 	pe.CoffHeader = &CoffHeader{}
 	if err = binary.Read(r, binary.LittleEndian, pe.CoffHeader); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading coffHeader in file %s: %v", path, err))
+		return nil, fmt.Errorf("Error reading coffHeader in file %s: %v", path, err)
 	}
 
 	// advance reader to start of OptionalHeader(32|32+)
 	if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error seeking to optionalHeader in file %s: %v", path, err))
+		return nil, fmt.Errorf("Error seeking to optionalHeader in file %s: %v", path, err)
 	}
 
 	// check if pe or pe+, read 2 bytes to get Magic then seek backward two bytes
 	var _magic uint16
 	if err := binary.Read(r, binary.LittleEndian, &_magic); err != nil {
-		return nil, errors.New(fmt.Sprintf("Error reading in magic"))
+		return nil, fmt.Errorf("Error reading in magic")
 	} else {
 		if _magic == 0x10b {
 			pe.PeType = Pe32
@@ -271,7 +270,7 @@ func LoadPeFile(path string) (*PeFile, error) {
 		}
 
 		if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error seeking to optionalHeader in file %s: %v", path, err))
+			return nil, fmt.Errorf("Error seeking to optionalHeader in file %s: %v", path, err)
 		}
 
 	}
@@ -280,12 +279,12 @@ func LoadPeFile(path string) (*PeFile, error) {
 	if pe.PeType == Pe32 {
 		pe.OptionalHeader = &OptionalHeader32{}
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error reading optionalHeader32 in file %s: %v", path, err))
+			return nil, fmt.Errorf("Error reading optionalHeader32 in file %s: %v", path, err)
 		}
 	} else {
 		pe.OptionalHeader = &OptionalHeader32P{}
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error reading optionalHeader32p in file %s: %v", path, err))
+			return nil, fmt.Errorf("Error reading optionalHeader32p in file %s: %v", path, err)
 		}
 	}
 
@@ -306,12 +305,12 @@ func LoadPeFile(path string) (*PeFile, error) {
 	// loop over each section and populate struct
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
 		if _, err = r.Seek(sections_start+int64(binary.Size(SectionHeader{})*i), io.SeekStart); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error seeking over sections in file %s: %v", path, err))
+			return nil, fmt.Errorf("Error seeking over sections in file %s: %v", path, err)
 		}
 
 		temp := SectionHeader{}
 		if err = binary.Read(r, binary.LittleEndian, &temp); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error reading section[%d] in file %s: %v", i, path, err))
+			return nil, fmt.Errorf("Error reading section[%d] in file %s: %v", i, path, err)
 		}
 		pe.sectionHeaders[i] = &temp
 
@@ -328,7 +327,7 @@ func LoadPeFile(path string) (*PeFile, error) {
 		pe.Sections[i].Characteristics = temp.Characteristics
 
 		if _, err = r.Seek(int64(temp.Offset), io.SeekStart); err != nil {
-			return nil, errors.New(fmt.Sprintf("Error seeking offset in section[%s] of file %s: %v", pe.Sections[i].Name, path, err))
+			return nil, fmt.Errorf("Error seeking offset in section[%s] of file %s: %v", pe.Sections[i].Name, path, err)
 		}
 		raw := make([]byte, temp.Size)
 		if _, err = r.Read(raw); err != nil {
@@ -336,7 +335,11 @@ func LoadPeFile(path string) (*PeFile, error) {
 				pe.Sections[i].Raw = nil
 				continue
 			}
+<<<<<<< HEAD
 			return nil, errors.New(fmt.Sprintf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, path, err))
+=======
+			return nil, fmt.Errorf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, path, err)
+>>>>>>> upstream/master
 		}
 		pe.Sections[i].Raw = raw
 	}
@@ -416,12 +419,12 @@ func (self *PeFile) readExports() error {
 
 	// seek to table offset
 	if _, err := r.Seek(int64(tableOffset), io.SeekStart); err != nil {
-		return errors.New(fmt.Sprintf("Error seeking to %s exportDirectory", self.Path))
+		return fmt.Errorf("Error seeking to %s exportDirectory", self.Path)
 	}
 
 	exportDirectory := ExportDirectory{}
 	if err := binary.Read(r, binary.LittleEndian, &exportDirectory); err != nil {
-		return errors.New(fmt.Sprintf("Error retrieving %s exportDirectory", self.Path))
+		return fmt.Errorf("Error retrieving %s exportDirectory", self.Path)
 	}
 
 	names := exportDirectory.NamesRva - section.VirtualAddress
@@ -434,12 +437,12 @@ func (self *PeFile) readExports() error {
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
 		// seek to names table
 		if _, err := r.Seek(int64(names+uint32(i*4)), io.SeekStart); err != nil {
-			return errors.New(fmt.Sprintf("Error seeking %s for exports names table: %v", self.Path, err))
+			return fmt.Errorf("Error seeking %s for exports names table: %v", self.Path, err)
 		}
 
 		exportAddressTable := ExportAddressTable{}
 		if err := binary.Read(r, binary.LittleEndian, &exportAddressTable); err != nil {
-			return errors.New(fmt.Sprintf("Error retrieving %s exports address table: %v", self.Path, err))
+			return fmt.Errorf("Error retrieving %s exports address table: %v", self.Path, err)
 		}
 
 		name := readString(section.Raw[exportAddressTable.ExportRva-section.VirtualAddress:])
@@ -449,13 +452,13 @@ func (self *PeFile) readExports() error {
 
 		// seek to ordinals table
 		if _, err := r.Seek(int64(uint32(ordinal)*4+exportDirectory.FunctionsRva-section.VirtualAddress), io.SeekStart); err != nil {
-			return errors.New(fmt.Sprintf("Error seeking %s ordinals table: %v", self.Path, err))
+			return fmt.Errorf("Error seeking %s ordinals table: %v", self.Path, err)
 		}
 
 		// get ordinal address table
 		exportOrdinalTable := ExportAddressTable{}
 		if err := binary.Read(r, binary.LittleEndian, &exportOrdinalTable); err != nil {
-			return errors.New(fmt.Sprintf("Error retrieving %s ordinals table: %v", self.Path, err))
+			return fmt.Errorf("Error retrieving %s ordinals table: %v", self.Path, err)
 		}
 
 		rva := exportOrdinalTable.ExportRva
@@ -500,7 +503,7 @@ func (self *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) er
 
 	// return error if not found
 	if sectionFound == false {
-		return errors.New(fmt.Sprintf("Error setting address for %s.%s to %x, section not found.", importInfo.DllName, importInfo.FuncName, importInfo.Offset))
+		return fmt.Errorf("Error setting address for %s.%s to %x, section not found.", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
 	}
 
 	//fmt.Println(importInfo)
@@ -892,7 +895,7 @@ func (self *PeFile) updateRelocations() error {
 
 	section := self.section(5)
 	if section == nil {
-		return errors.New(fmt.Sprintf("Section not found, index 5."))
+		return fmt.Errorf("section not found, index 5")
 	}
 	// create raw data reader
 	r := bytes.NewReader(section.Raw)
