@@ -210,14 +210,17 @@ func (self *PeFile) EntryPoint() uint32 {
 	}
 }
 
+// LoadPeFile will parse a file from disk, given a path. The output will be a
+// PeFile object or an error
 func LoadPeFile(path string) (*PeFile, error) {
+
+	// create PeFile struct
+	pe := PeFile{Path: path}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("Error opening %s file: %v", path, err)
 	}
-
-	// create PeFile struct
-	pe := PeFile{Path: path}
 
 	// get size of file, then seek back to start to reset the cursor
 	size, err := file.Seek(0, 2)
@@ -233,35 +236,55 @@ func LoadPeFile(path string) (*PeFile, error) {
 	}
 	pe.Size = size
 
+	if err := analyzePeFile(data, &pe); err != nil {
+		return nil, err
+	}
+	return &pe, nil
+}
+
+// LoadPeBytes will take a PE file in the form of an in memory byte array and parse it
+func LoadPeBytes(data []byte, name string) (*PeFile, error) {
+	pe := PeFile{Path: name}
+	pe.Size = int64(len(data))
+	if err := analyzePeFile(data, &pe); err != nil {
+		return nil, err
+	}
+	return &pe, nil
+}
+
+// analyzePeFile is the core parser for PE files
+func analyzePeFile(data []byte, pe *PeFile) error {
+	var err error
+
 	//create reader at offset 0
 	r := bytes.NewReader(data)
 
 	// read in DosHeader
 	pe.DosHeader = &DosHeader{}
 	if err = binary.Read(r, binary.LittleEndian, pe.DosHeader); err != nil {
-		return nil, fmt.Errorf("Error reading dosHeader from file %s: %v", path, err)
+		return fmt.Errorf("Error reading dosHeader from file %s: %v", pe.Path, err)
 	}
 
 	// move offset to CoffHeader
 	if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("Error seeking to coffHeader in file %s: %v", path, err)
+		return fmt.Errorf("Error seeking to coffHeader in file %s: %v", pe.Path, err)
 	}
 
 	// read CoffHeader into struct
 	pe.CoffHeader = &CoffHeader{}
 	if err = binary.Read(r, binary.LittleEndian, pe.CoffHeader); err != nil {
-		return nil, fmt.Errorf("Error reading coffHeader in file %s: %v", path, err)
+		return fmt.Errorf("Error reading coffHeader in file %s: %v", pe.Path, err)
 	}
 
 	// advance reader to start of OptionalHeader(32|32+)
 	if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
-		return nil, fmt.Errorf("Error seeking to optionalHeader in file %s: %v", path, err)
+		return fmt.Errorf("Error seeking to optionalHeader in file %s: %v", pe.Path, err)
 	}
 
 	// check if pe or pe+, read 2 bytes to get Magic then seek backward two bytes
 	var _magic uint16
 	if err := binary.Read(r, binary.LittleEndian, &_magic); err != nil {
-		return nil, fmt.Errorf("Error reading in magic")
+		return fmt.Errorf("Error reading in magic")
 	} else {
 		if _magic == 0x10b {
 			pe.PeType = Pe32
@@ -270,7 +293,7 @@ func LoadPeFile(path string) (*PeFile, error) {
 		}
 
 		if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
-			return nil, fmt.Errorf("Error seeking to optionalHeader in file %s: %v", path, err)
+			return fmt.Errorf("Error seeking to optionalHeader in file %s: %v", pe.Path, err)
 		}
 
 	}
@@ -279,12 +302,12 @@ func LoadPeFile(path string) (*PeFile, error) {
 	if pe.PeType == Pe32 {
 		pe.OptionalHeader = &OptionalHeader32{}
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
-			return nil, fmt.Errorf("Error reading optionalHeader32 in file %s: %v", path, err)
+			return fmt.Errorf("Error reading optionalHeader32 in file %s: %v", pe.Path, err)
 		}
 	} else {
 		pe.OptionalHeader = &OptionalHeader32P{}
 		if err = binary.Read(r, binary.LittleEndian, pe.OptionalHeader); err != nil {
-			return nil, fmt.Errorf("Error reading optionalHeader32p in file %s: %v", path, err)
+			return fmt.Errorf("Error reading optionalHeader32p in file %s: %v", pe.Path, err)
 		}
 	}
 
@@ -305,12 +328,12 @@ func LoadPeFile(path string) (*PeFile, error) {
 	// loop over each section and populate struct
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
 		if _, err = r.Seek(sections_start+int64(binary.Size(SectionHeader{})*i), io.SeekStart); err != nil {
-			return nil, fmt.Errorf("Error seeking over sections in file %s: %v", path, err)
+			return fmt.Errorf("Error seeking over sections in file %s: %v", pe.Path, err)
 		}
 
 		temp := SectionHeader{}
 		if err = binary.Read(r, binary.LittleEndian, &temp); err != nil {
-			return nil, fmt.Errorf("Error reading section[%d] in file %s: %v", i, path, err)
+			return fmt.Errorf("Error reading section[%d] in file %s: %v", i, pe.Path, err)
 		}
 		pe.sectionHeaders[i] = &temp
 
@@ -327,7 +350,7 @@ func LoadPeFile(path string) (*PeFile, error) {
 		pe.Sections[i].Characteristics = temp.Characteristics
 
 		if _, err = r.Seek(int64(temp.Offset), io.SeekStart); err != nil {
-			return nil, fmt.Errorf("Error seeking offset in section[%s] of file %s: %v", pe.Sections[i].Name, path, err)
+			return fmt.Errorf("Error seeking offset in section[%s] of file %s: %v", pe.Sections[i].Name, pe.Path, err)
 		}
 		raw := make([]byte, temp.Size)
 		if _, err = r.Read(raw); err != nil {
@@ -335,7 +358,7 @@ func LoadPeFile(path string) (*PeFile, error) {
 				pe.Sections[i].Raw = nil
 				continue
 			}
-			return nil, fmt.Errorf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, path, err)
+			return fmt.Errorf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, pe.Path, err)
 		}
 		pe.Sections[i].Raw = raw
 	}
@@ -343,11 +366,11 @@ func LoadPeFile(path string) (*PeFile, error) {
 	pe.RawHeaders = data[0:pe.Sections[0].Offset]
 	pe.readImports()
 	if err = pe.readExports(); err != nil {
-		return nil, err
+		return err
 	}
 	pe.readApiset()
 
-	return &pe, nil
+	return nil
 }
 
 func readString(b []byte) string {
