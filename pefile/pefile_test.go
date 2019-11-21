@@ -19,3 +19,21 @@ func TestLoadExe(t *testing.T) {
 	}
 
 }
+
+func TestLoadExe2(t *testing.T) {
+	pe, err := LoadPeFile("../tests/ConsoleApplication1_x86.exe")
+	if err != nil {
+		t.Errorf("Error loading %s\n", pe.Path)
+	}
+
+	for _, s := range pe.Sections {
+		t.Log(s.Name)
+		if s.Name == ".text" {
+			t.Log("AAAAAAAAAAAAA")
+			if s.Entropy != 6.261266648299236 {
+				t.Error("invalid entropy")
+			}
+		}
+	}
+
+}
