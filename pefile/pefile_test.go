@@ -29,7 +29,6 @@ func TestLoadExe2(t *testing.T) {
 	for _, s := range pe.Sections {
 		t.Log(s.Name)
 		if s.Name == ".text" {
-			t.Log("AAAAAAAAAAAAA")
 			if s.Entropy != 6.261266648299236 {
 				t.Error("invalid entropy")
 			}

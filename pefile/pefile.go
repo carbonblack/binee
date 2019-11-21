@@ -385,7 +385,6 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 		}
 		pe.Sections[i].Raw = raw
 		pe.Sections[i].Entropy = entropy(raw)
-		fmt.Println("entroyp:", pe.Sections[i].Entropy)
 	}
 
 	pe.RawHeaders = data[0:pe.Sections[0].Offset]
