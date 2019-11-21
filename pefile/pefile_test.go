@@ -27,10 +27,9 @@ func TestLoadExe2(t *testing.T) {
 	}
 
 	for _, s := range pe.Sections {
-		t.Log(s.Name)
-		if s.Name == ".text" {
-			if s.Entropy != 6.261266648299236 {
-				t.Error("invalid entropy")
+		if s.Name == ".text\x00\x00\x00" {
+			if s.Entropy != 6.20128067741889 {
+				t.Errorf("invalid entropy, got %v", s.Entropy)
 			}
 		}
 	}
