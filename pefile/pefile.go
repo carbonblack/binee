@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"strings"
 	"unicode/utf16"
@@ -148,6 +149,7 @@ type Section struct {
 	NumberOfLineNumbers  uint16
 	Characteristics      uint32
 	Raw                  []byte
+	Entropy              float64
 }
 
 type ImportInfo struct {
@@ -176,6 +178,27 @@ type PeFile struct {
 	RawHeaders       []byte
 	oldImageBase     uint64
 	ImageSize        int64
+}
+
+func entropy(bs []byte) float64 {
+	histo := make([]int, 256)
+	for _, b := range bs {
+		histo[int(b)]++
+	}
+
+	size := len(bs)
+	var ret float64 = 0.0
+
+	for _, count := range histo {
+		if count == 0 {
+			continue
+		}
+
+		p := float64(count) / float64(size)
+		ret += p * math.Log2(p)
+	}
+
+	return -ret
 }
 
 func (self *PeFile) String() string {
@@ -361,6 +384,7 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 			return fmt.Errorf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, pe.Path, err)
 		}
 		pe.Sections[i].Raw = raw
+		pe.Sections[i].Entropy = entropy(raw)
 	}
 
 	pe.RawHeaders = data[0:pe.Sections[0].Offset]
