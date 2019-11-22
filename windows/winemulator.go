@@ -102,7 +102,6 @@ func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	if lib := self.LookupLibByAddress(addr); lib != "" {
 		//check if named function has a hook defined
 		if function := self.libAddressFunction[lib][addr]; function != "" {
-			//if hook := emu.ResolveNameToHook(name, function); hook != nil {
 			if hook := self.nameToHook[function]; hook != nil {
 				return lib, function, hook
 			}

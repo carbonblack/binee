@@ -427,10 +427,6 @@ func NopHook() *Hook {
 	}
 }
 
-func (emu *WinEmulator) ResolveNameToHook(lib, function string) *Hook {
-	return emu.nameToHook[lib+":"+function]
-}
-
 func (emu *WinEmulator) BuildInstruction(addr uint64, size uint32) *Instruction {
 	instruction := Instruction{addr, size, make([]uint64, 0, 0), nil, nil, emu, emu.Scheduler.CurThreadId()}
 	instruction.Hook = NopHook()
