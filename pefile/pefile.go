@@ -573,19 +573,16 @@ func (self *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) er
 }
 
 func (self *PeFile) ImportedDlls() []string {
-	temp := make(map[string]string)
+	var dllNames []string
+	present := make(map[string]bool)
 	for _, importInfo := range self.Imports {
-		if temp[importInfo.DllName] == "" {
-			temp[importInfo.DllName] = importInfo.DllName
+		if present[importInfo.DllName] {
+			continue
 		}
+		present[importInfo.DllName] = true
+		dllNames = append(dllNames, importInfo.DllName)
 	}
-
-	temp2 := make([]string, 0, len(temp))
-	for k := range temp {
-		temp2 = append(temp2, k)
-	}
-
-	return temp2
+	return dllNames
 }
 
 func (self *PeFile) getSectionByRva(rva uint32) *Section {
