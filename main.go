@@ -26,6 +26,7 @@ func main() {
 	outputJSON := flag.Bool("j", false, "output data as json")
 	verbose2 := flag.Bool("vv", false, "verbose level 2")
 	verbose1 := flag.Bool("v", false, "verbose level 1")
+	runDLLMain := flag.Bool("l", false, "call DLLMain while loading DLLs")
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
 
 	flag.Parse()
@@ -119,8 +120,15 @@ func main() {
 		return
 	}
 
+	options := windows.InitWinEmulatorOptions()
+	options.VerboseLevel = verboseLevel
+	options.ConfigPath = *configFilePath
+	options.RootFolder = *rootFolder
+	options.ShowDLL = *showDLL
+	options.RunDLLMain = *runDLLMain
+
 	// now start the emulator with the various options
-	emu, err := windows.New(flag.Args()[0], uc.ARCH_X86, uc.MODE_32, flag.Args()[1:], verboseLevel, *configFilePath, *showDLL, false)
+	emu, err := windows.New(flag.Args()[0], uc.ARCH_X86, uc.MODE_32, flag.Args()[1:], options)
 	emu.AsJson = *outputJSON
 	if err != nil {
 		log.Fatal(err)
