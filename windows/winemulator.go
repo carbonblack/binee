@@ -280,7 +280,10 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	}
 
 	//load the PE
-	pe, _ := pefile.LoadPeFile(emu.Binary)
+	pe, err := pefile.LoadPeFile(emu.Binary)
+	if err != nil {
+		return emu, err
+	}
 	err = emu.initPe(pe, path, arch, mode, args, calldllmain)
 
 	emu.Cpu = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
