@@ -264,12 +264,12 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Opts.TempRegistry["HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\PowerShell\\1\\Install"] = "dword:00000001"
 	emu.Opts.TempRegistry["HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\PowerShell\\1\\PID"] = "89383-100-0001260-04309"
 
-	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
-
 	var buf []byte
 	if buf, err = ioutil.ReadFile(config); err == nil {
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
+
+	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
