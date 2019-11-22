@@ -35,3 +35,18 @@ func TestLoadExe2(t *testing.T) {
 	}
 
 }
+
+func TestParsePEplusImports(t *testing.T) {
+	pe, err := LoadPeFile("../tests/ConsoleApplication1_x64.exe")
+	if err != nil {
+		t.Errorf("Error loading %s\n", pe.Path)
+	}
+
+	if len(pe.ImportedDlls()) != 8 {
+		t.Errorf("invalid number of dlls imported, got %v", len(pe.ImportedDlls()))
+	}
+
+	if len(pe.Imports) != 48 {
+		t.Errorf("invalid number of imports parsed, got %v", len(pe.Imports))
+	}
+}
