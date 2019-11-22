@@ -1,7 +1,10 @@
 package core_test
 
-import core "github.com/carbonblack/binee/core"
-import "testing"
+import (
+	"testing"
+
+	core "github.com/carbonblack/binee/core"
+)
 
 func TestHeapFree(t *testing.T) {
 	// copied from windows/loader.go

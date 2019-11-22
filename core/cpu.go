@@ -1,8 +1,11 @@
 package core
 
-import "fmt"
-import "encoding/binary"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"encoding/binary"
+	"fmt"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 type CpuManager struct {
 	emu          uc.Unicorn

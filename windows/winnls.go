@@ -1,7 +1,9 @@
 package windows
 
-import "github.com/carbonblack/binee/util"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"github.com/carbonblack/binee/util"
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 func getLocaleInfo(emu *WinEmulator, in *Instruction) bool {
 	lctype := in.Args[1]

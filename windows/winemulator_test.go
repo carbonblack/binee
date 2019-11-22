@@ -1,7 +1,10 @@
 package windows_test
 
-import "github.com/carbonblack/binee/windows"
-import "testing"
+import (
+	"testing"
+
+	"github.com/carbonblack/binee/windows"
+)
 
 func TestLookupFunctionByAddress(t *testing.T) {
 	emu := windows.WinEmulator{}

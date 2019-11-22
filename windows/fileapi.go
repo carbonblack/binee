@@ -1,7 +1,10 @@
 package windows
 
-import "github.com/carbonblack/binee/util"
-import "encoding/binary"
+import (
+	"encoding/binary"
+
+	"github.com/carbonblack/binee/util"
+)
 
 //import "fmt"
 

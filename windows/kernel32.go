@@ -1,12 +1,15 @@
 package windows
 
-import "strings"
-import "bytes"
-import "time"
-import "encoding/binary"
-import "path/filepath"
-import "github.com/carbonblack/binee/util"
-import "github.com/carbonblack/binee/pefile"
+import (
+	"bytes"
+	"encoding/binary"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/carbonblack/binee/pefile"
+	"github.com/carbonblack/binee/util"
+)
 
 type StartupInfo struct {
 	Cb          int32

@@ -1,17 +1,23 @@
 package windows
 
-import "gopkg.in/yaml.v2"
-import "os"
-import "io/ioutil"
-import "time"
-import "github.com/carbonblack/binee/pefile"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"io/ioutil"
+	"os"
+	"time"
 
-//import "regexp"
-import cs "github.com/kgwinnup/gapstone"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
-import "sort"
-import core "github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/pefile"
+	"gopkg.in/yaml.v2"
+
+	//import "regexp"
+	cs "github.com/kgwinnup/gapstone"
+
+	"sort"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+
+	core "github.com/carbonblack/binee/core"
+)
 
 type Env struct {
 	Key   string `yaml:"key"`

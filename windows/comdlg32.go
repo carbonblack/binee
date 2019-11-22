@@ -1,7 +1,9 @@
 package windows
 
-import "bytes"
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+)
 
 type OpenFileName32 struct {
 	StructSize    uint32

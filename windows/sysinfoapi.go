@@ -1,8 +1,11 @@
 package windows
 
-import "github.com/carbonblack/binee/util"
-import "bytes"
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+
+	"github.com/carbonblack/binee/util"
+)
 
 func getSystemInfo(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
 	info := struct {

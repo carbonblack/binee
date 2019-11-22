@@ -1,7 +1,10 @@
 package windows_test
 
-import "github.com/carbonblack/binee/windows"
-import "testing"
+import (
+	"testing"
+
+	"github.com/carbonblack/binee/windows"
+)
 
 func makeRegistry() *windows.Registry {
 	temp := make(map[string]string)

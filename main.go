@@ -2,13 +2,17 @@
 // parameterized options passed in via command line
 package main
 
-import "fmt"
-import "log"
-import "os"
-import "github.com/carbonblack/binee/pefile"
-import "github.com/carbonblack/binee/windows"
-import "github.com/carbonblack/binee/util"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/carbonblack/binee/pefile"
+	"github.com/carbonblack/binee/util"
+	"github.com/carbonblack/binee/windows"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 type Options struct {
 	Binary       string
