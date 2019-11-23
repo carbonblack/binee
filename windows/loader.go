@@ -224,14 +224,14 @@ type UserProcessParameters32 struct {
 	CommandLine       uint32
 }
 
-func (self *WinEmulator) UpdateImageBase(pe *pefile.PeFile) {
+func (emu *WinEmulator) updateImageBase(pe *pefile.PeFile) {
 
-	if pe.SetImageBase(self.NextLibAddress) != nil {
+	if pe.SetImageBase(emu.NextLibAddress) != nil {
 		fmt.Fprintf(os.Stderr, "error setting image base and/or updating relocations")
 	}
 
 	// populate internal mapping of realdll name to base address
-	self.LoadedModules[pe.Name] = self.NextLibAddress
+	emu.LoadedModules[pe.Name] = emu.NextLibAddress
 
 	// calculate total dll size in memory
 	dllSize := 0
@@ -241,47 +241,47 @@ func (self *WinEmulator) UpdateImageBase(pe *pefile.PeFile) {
 
 	// set address for next DLL
 	for i := 0; i <= dllSize; i += 4096 {
-		self.NextLibAddress += 4096
+		emu.NextLibAddress += 4096
 	}
 }
 
-func (self *WinEmulator) extractExports(pe *pefile.PeFile) {
+func (emu *WinEmulator) extractExports(pe *pefile.PeFile) {
 	name := pe.Name
 	for _, funcs := range pe.Exports {
 		realAddr := uint64(funcs.Rva) + pe.ImageBase()
-		if _, ok := self.libFunctionAddress[name]; !ok {
-			self.libFunctionAddress[name] = make(map[string]uint64)
+		if _, ok := emu.libFunctionAddress[name]; !ok {
+			emu.libFunctionAddress[name] = make(map[string]uint64)
 		}
-		if _, ok := self.libAddressFunction[name]; !ok {
-			self.libAddressFunction[name] = make(map[uint64]string)
+		if _, ok := emu.libAddressFunction[name]; !ok {
+			emu.libAddressFunction[name] = make(map[uint64]string)
 		}
-		self.libFunctionAddress[name][funcs.Name] = realAddr
-		self.libAddressFunction[name][realAddr] = funcs.Name
+		emu.libFunctionAddress[name][funcs.Name] = realAddr
+		emu.libAddressFunction[name][realAddr] = funcs.Name
 	}
 }
 
-func (self *WinEmulator) getLdrPointer(baseaddr, offset, length uint64, adjust64 bool) uint64 {
-	loc := baseaddr + (offset * (self.PtrSize / 4))
-	if self.PtrSize == 8 && adjust64 {
+func (emu *WinEmulator) getLdrPointer(baseaddr, offset, length uint64, adjust64 bool) uint64 {
+	loc := baseaddr + (offset * (emu.PtrSize / 4))
+	if emu.PtrSize == 8 && adjust64 {
 		loc = (loc * 2) - 8
 	}
-	mem, _ := self.Uc.MemRead(loc, length)
-	if self.PtrSize == 4 {
+	mem, _ := emu.Uc.MemRead(loc, length)
+	if emu.PtrSize == 4 {
 		mem = append(mem, []byte{0, 0, 0, 0}...)
 	}
 	ptr := binary.LittleEndian.Uint64(mem)
 	return ptr
 }
 
-func (self *WinEmulator) initializeListHead(address uint64) {
-	buf := make([]byte, self.PtrSize)
-	if self.PtrSize == 4 {
+func (emu *WinEmulator) initializeListHead(address uint64) {
+	buf := make([]byte, emu.PtrSize)
+	if emu.PtrSize == 4 {
 		binary.LittleEndian.PutUint32(buf, uint32(address))
 	} else {
 		binary.LittleEndian.PutUint64(buf, address)
 	}
-	self.Uc.MemWrite(address, buf)
-	self.Uc.MemWrite(address+self.PtrSize, buf)
+	emu.Uc.MemWrite(address, buf)
+	emu.Uc.MemWrite(address+emu.PtrSize, buf)
 }
 
 //build an LdrEntry and then write it to the emulator memory
@@ -324,12 +324,12 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 	return 0
 }
 
-func (self *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
+func (emu *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
 	addr := listHead
 	var Flink uint64
 	//var Blink uint64
 	for {
-		Flink = self.getLdrPointer(addr, 0, self.PtrSize, true)
+		Flink = emu.getLdrPointer(addr, 0, emu.PtrSize, true)
 		//Blink = self.getLdrPointer(addr+(4*(self.PtrSize/4)), 0, self.PtrSize, true)
 		if Flink == listHead {
 			if addr == listHead {
@@ -800,7 +800,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			continue
 		}
 
-		emu.UpdateImageBase(lpe)
+		emu.updateImageBase(lpe)
 		// add PeFile to "already checked" mapping
 		peCheck[lpe.RealName] = true
 	}
