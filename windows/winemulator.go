@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	cs "github.com/kgwinnup/gapstone"
+	cs "github.com/knightsc/gapstone"
 
 	"sort"
 
