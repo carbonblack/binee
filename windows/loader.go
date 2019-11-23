@@ -722,8 +722,8 @@ func (emu *WinEmulator) initRegisters() error {
 	return nil
 }
 
-// SetupDllMainCallstack Add dll to ropchain for calling DllMain
-func (emu *WinEmulator) SetupDllMainCallstack(dll *pefile.PeFile) {
+// setupDllMainCallstack Add dll to ropchain for calling DllMain
+func (emu *WinEmulator) setupDllMainCallstack(dll *pefile.PeFile) {
 	//TODO: make this 64-bit aware, this implementation is only 32 bit currently.
 	if emu.PtrSize == 4 {
 		hmodule := dll.ImageBase()
@@ -899,7 +899,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			dll := peMap[name]
 			if !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
 				if dll.EntryPoint() != 0 {
-					emu.SetupDllMainCallstack(dll)
+					emu.setupDllMainCallstack(dll)
 				}
 			}
 		}
