@@ -303,7 +303,16 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrEntry.FullDllName.Length = uint16(nameLength)
 		LdrEntry.FullDllName.MaximumLength = uint16(nameLength)
 		LdrEntry.EntryPoint = uint32(lpe.EntryPoint())
-		LdrEntry.DllBase = uint32(lpe.OptionalHeader.(*pefile.OptionalHeader32).ImageBase)
+		var imageBase uint32
+		switch optHdr := lpe.OptionalHeader.(type) {
+		case *pefile.OptionalHeader32:
+			imageBase = uint32(optHdr.ImageBase)
+		case *pefile.OptionalHeader32P:
+			imageBase = uint32(optHdr.ImageBase)
+		default:
+			panic(fmt.Errorf("support for %T not yet implemented", lpe.OptionalHeader))
+		}
+		LdrEntry.DllBase = imageBase
 		LdrEntry.SizeOfImage = uint32(lpe.ImageSize)
 		LdrEntry.TlsIndex = uint16(index)
 
@@ -381,6 +390,10 @@ func retrieveDllFromDisk(cur map[string]*pefile.PeFile, apiset *pefile.PeFile, s
 	// get realDll name on disk
 	// for apiset recurse through each real dll in the apisets list
 	if strings.Compare(name[:4], "api-") == 0 {
+		if apiset == nil {
+			fmt.Fprintf(os.Stderr, "error loading dll %s; unable to locate \"apisetschema.dll\"\n", name)
+			return
+		}
 		apiset_len := len(apiset.Apisets[name[0:len(name)-6]]) - 1
 		if apiset_len >= 0 {
 			realDll = apiset.Apisets[name[0:len(name)-6]][apiset_len]
@@ -762,10 +775,11 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 
 	// load Apisetschema dll for mapping to real dlls
 	apisetPath, err := util.SearchFile(emu.SearchPath, "apisetschema.dll")
-	if err != nil {
-		return err
+	var apiset *pefile.PeFile
+	if err == nil {
+		// only load apisetschema.dll if present.
+		apiset, _ = pefile.LoadPeFile(apisetPath)
 	}
-	apiset, _ := pefile.LoadPeFile(apisetPath)
 
 	// create the main map to hold all name/realdll mappings to actual PeFile object
 	peMap := make(map[string]*pefile.PeFile)
