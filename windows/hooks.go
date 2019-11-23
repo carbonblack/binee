@@ -116,7 +116,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 		instruction.Hook.Return = returns
 
-		if emu.AsJson == true {
+		if emu.AsJSON == true {
 			if buf, err := json.Marshal(instruction); err == nil {
 				if instruction.Hook.Implemented == true {
 					fmt.Println(string(buf))
@@ -129,10 +129,10 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 				// show registers
 				if emu.Verbosity == 2 {
 					fmt.Println("---")
-					fmt.Println(emu.Cpu.ReadRegisters())
+					fmt.Println(emu.CPU.ReadRegisters())
 
 					if emu.UcMode == uc.MODE_32 {
-						emu.Cpu.PrintStack(10)
+						emu.CPU.PrintStack(10)
 					} else {
 					}
 					fmt.Println(instruction)

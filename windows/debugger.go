@@ -121,10 +121,10 @@ func HookCodeStep(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32
 				}
 			} else if len(words) == 2 {
 				if (words[0] == "show" || words[0] == "s") && words[1] == "registers" {
-					r := emu.Cpu.ReadRegisters()
+					r := emu.CPU.ReadRegisters()
 					fmt.Println(r)
 				} else if (words[0] == "show" || words[0] == "s") && words[1] == "stack" {
-					emu.Cpu.PrintStack(10)
+					emu.CPU.PrintStack(10)
 				} else if (words[0] == "show" || words[0] == "s") && words[1] == "breakpoints" {
 					fmt.Println("Current breakpoints:")
 					for _, v := range emu.Breakpoints {

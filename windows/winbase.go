@@ -35,7 +35,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			}
 
 			// set last error to 0xcb
-			emu.SetLastError(0xcb)
+			emu.setLastError(0xcb)
 			return SkipFunctionStdCall(true, 0x0)(emu, in)
 		},
 	})
@@ -61,7 +61,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			}
 
 			// set last error to 0xcb
-			emu.SetLastError(0xcb)
+			emu.setLastError(0xcb)
 			return SkipFunctionStdCall(true, 0x0)(emu, in)
 		},
 	})
