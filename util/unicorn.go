@@ -117,9 +117,9 @@ func ResolveRegisterByName(name string) (int, error) {
 
 }
 
-// ReadAscii will read an ascii string from memory, ending at a null byte. The
+// ReadASCII will read an ascii string from memory, ending at a null byte. The
 // null byte is also included in the return result
-func ReadAscii(u uc.Unicorn, addr uint64, size int) string {
+func ReadASCII(u uc.Unicorn, addr uint64, size int) string {
 	ret := ""
 
 	if size == 0 {

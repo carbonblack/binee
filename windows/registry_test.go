@@ -20,7 +20,7 @@ func TestRegistry(t *testing.T) {
 	mock := makeRegistry()
 
 	if mock.Size != 8 {
-		t.Errorf("Size of Registry should be 2, found '%v'", mock.Size)
+		t.Errorf("Size of Registry should be 8, found '%v'", mock.Size)
 	}
 
 	if _, err := mock.Get("HKEY_LOCAL_MACHINE", "SYSTEM\\ControlSet001\\Control\\Arbiters\\InaccessibleRange2"); err != nil {
