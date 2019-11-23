@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/arch/x86/x86asm"
 	"os"
 	"runtime"
 	"strings"
@@ -267,8 +268,9 @@ func (self *Instruction) Address() string {
 
 func (self *Instruction) Disassemble() string {
 	buf, _ := self.emu.Uc.MemRead(self.Addr, uint64(self.Size))
-	if inst, err := self.emu.Cs.Disasm(buf, 0, uint64(self.Size)); err == nil {
-		return fmt.Sprintf("%s %s", inst[0].Mnemonic, inst[0].OpStr)
+	mode := int(8 * self.emu.PtrSize)
+	if inst, err := x86asm.Decode(buf, mode); err == nil {
+		return strings.ToLower(inst.String())
 	}
 	return ""
 }
