@@ -4,6 +4,8 @@ github.com/unicorn-engine/unicorn v0.0.0-20191025210239-3b17db0d84a2 h1:zKa6xZVM
 github.com/unicorn-engine/unicorn v0.0.0-20191025210239-3b17db0d84a2/go.mod h1:vm0xtY46O4X0t1J6Ob+syPhvL38XAAidXGXmTSlcMZM=
 golang.org/x/arch v0.0.0-20191101135251-a0d8588395bd h1:e1iK2rWppIPlzzqtjXT/p6WR/+ritGZ8xkfL8uDZb0g=
 golang.org/x/arch v0.0.0-20191101135251-a0d8588395bd/go.mod h1:flIaEI6LNU6xOCD5PaJvn9wGP0agmIOqjrtsKGRguv4=
+golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e h1:N7DeIrjYszNmSW409R3frPPwglRwMkXSBzwVbkOjLLA=
+golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.5 h1:ymVxjfMaHvXD8RqPRmzHHsB3VvucivSkIAvJFDI5O3c=
