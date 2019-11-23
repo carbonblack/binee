@@ -747,6 +747,12 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 	// open each DLL and load into map, adjust base address with NextLibAddress
 	emu.EntryPoint = pe.ImageBase() + uint64(pe.EntryPoint())
 
+	if mode == uc.MODE_32 {
+		emu.MemRegions.ImageAddress = pe.ImageBase()
+	} else {
+		emu.MemRegions.ImageAddress = pe.ImageBase()
+	}
+
 	if emu.Uc, err = uc.NewUnicorn(emu.UcArch, emu.UcMode); err != nil {
 		return err
 	}
@@ -765,12 +771,6 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 
 	if err := emu.initCommandLine(); err != nil {
 		return err
-	}
-
-	if mode == uc.MODE_32 {
-		emu.MemRegions.ImageAddress = pe.ImageBase()
-	} else {
-		emu.MemRegions.ImageAddress = pe.ImageBase()
 	}
 
 	// load Apisetschema dll for mapping to real dlls

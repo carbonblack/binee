@@ -335,7 +335,7 @@ func (self *Instruction) String() string {
 			}
 		}
 		ret += fmt.Sprintf(") = 0x%x", self.Hook.Return)
-		if self.Hook.HookStatus != "F" {
+		if self.Hook.HookStatus != "F" && self.Hook.HookStatus != "P" {
 			// print instruction at function entry point if not fully hooked.
 			ret += fmt.Sprintf("\n[%d] %s: %s", self.ThreadId, self.Address(), self.Disassemble())
 		}
