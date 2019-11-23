@@ -79,21 +79,21 @@ func Sysinfoapi(emu *WinEmulator) {
 				in.Hook.Values[0] = "ComputerNameDnsFullyQualified"
 			case 2:
 				in.Hook.Values[0] = "ComputerNameDnsHostname"
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(emu.Opts.ComputerName+"\u0000"))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(emu.Opts.ComputerName+"\u0000"))
 			case 3:
 				in.Hook.Values[0] = "ComputerNameNetBIOS"
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(emu.Opts.ComputerName+"\u0000"))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(emu.Opts.ComputerName+"\u0000"))
 			case 4:
 				in.Hook.Values[0] = "ComputerNamePhysicalDnsDomain"
 			case 5:
 				in.Hook.Values[0] = "ComputerNamePhysicalDnsFullyQualified"
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(emu.Opts.ComputerName+"\u0000"))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(emu.Opts.ComputerName+"\u0000"))
 			case 6:
 				in.Hook.Values[0] = "ComputerNamePhysicalDnsHostname"
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(emu.Opts.ComputerName+"\u0000"))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(emu.Opts.ComputerName+"\u0000"))
 			case 7:
 				in.Hook.Values[0] = "ComputerNamePhysicalNetBIOS"
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(emu.Opts.ComputerName+"\u0000"))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(emu.Opts.ComputerName+"\u0000"))
 			}
 			return SkipFunctionStdCall(true, 0x1)(emu, in)
 		},

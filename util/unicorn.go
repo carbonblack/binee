@@ -1,4 +1,4 @@
-// util package provides some helper functions for interacting with unicorn
+// Package util package provides some helper functions for interacting with unicorn
 // emulator that are independent from any of the process emulation happening
 package util
 
@@ -13,7 +13,7 @@ import (
 	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 )
 
-// StructWrite, given a struct and a unicorn memory address. Convert the struct to a byte
+// StructWrite given a struct and a unicorn memory address. Convert the struct to a byte
 // array and write that byte array to the address in the unicorn memory
 func StructWrite(u uc.Unicorn, addr uint64, data interface{}) error {
 	buf := new(bytes.Buffer)
@@ -243,7 +243,7 @@ func ReadPeFile(u uc.Unicorn, addr uint64) (pefile.PeFile, error) {
 
 }
 
-// GetStackValueByIndex gets a single entry (pointer) off the stack at a given depth
+// GetStackEntryByIndex  gets a single entry (pointer) off the stack at a given depth
 func GetStackEntryByIndex(u uc.Unicorn, mode int, n int) uint64 {
 	if mode == uc.MODE_32 {
 		esp, _ := u.RegRead(uc.X86_REG_ESP)
@@ -251,11 +251,12 @@ func GetStackEntryByIndex(u uc.Unicorn, mode int, n int) uint64 {
 		ptr, _ := u.MemRead(esp+uint64(n)*4, 4)
 		addr := uint64(binary.LittleEndian.Uint32(ptr))
 		return addr
-	} else {
-		rsp, _ := u.RegRead(uc.X86_REG_RSP)
-		ptr, _ := u.MemRead(rsp+uint64(n)*8, 8)
-		addr := uint64(
-			binary.LittleEndian.Uint64(ptr))
-		return addr
 	}
+
+	// 64bit mode
+	rsp, _ := u.RegRead(uc.X86_REG_RSP)
+	ptr, _ := u.MemRead(rsp+uint64(n)*8, 8)
+	addr := uint64(
+		binary.LittleEndian.Uint64(ptr))
+	return addr
 }

@@ -55,7 +55,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			}
 
 			if val != "" {
-				buf := util.AsciiToWinWChar(val)
+				buf := util.ASCIIToWinWChar(val)
 				emu.Uc.MemWrite(in.Args[1], buf)
 				return SkipFunctionStdCall(true, uint64(len(val)))(emu, in)
 			}

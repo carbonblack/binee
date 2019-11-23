@@ -70,7 +70,7 @@ func getEnvironmentStrings(emu *WinEmulator, in *Instruction, wide bool) func(em
 	b := make([]byte, 0, 100)
 	for _, entry := range emu.Opts.Env {
 		if wide {
-			s := util.AsciiToWinWChar(entry.Key + "=" + entry.Value)
+			s := util.ASCIIToWinWChar(entry.Key + "=" + entry.Value)
 			b = append(b, s[:]...)
 			b = append(b, 0x00)
 		} else {
@@ -370,10 +370,10 @@ func KernelbaseHooks(emu *WinEmulator) {
 			f := ""
 			if in.Args[0] == 0x0 {
 				f = "C:\\Users\\" + emu.Opts.User + "\\" + filepath.Base(emu.Binary)
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(f))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(f))
 			} else {
 				f = "C:\\Windows\\System32\\" + filepath.Base(emu.Binary)
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(f))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(f))
 			}
 			return SkipFunctionStdCall(true, uint64(len(f)+2))(emu, in)
 		},
@@ -497,7 +497,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetSystemDirectoryW", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			dir := util.AsciiToWinWChar("c:\\windows\\system32")
+			dir := util.ASCIIToWinWChar("c:\\windows\\system32")
 			emu.Uc.MemWrite(in.Args[0], dir)
 			return SkipFunctionStdCall(true, uint64(len(dir)))(emu, in)
 		},
@@ -620,7 +620,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetWindowsDirectoryW", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			d := util.AsciiToWinWChar("c:\\windows")
+			d := util.ASCIIToWinWChar("c:\\windows")
 			emu.Uc.MemWrite(in.Args[0], d)
 			return SkipFunctionStdCall(true, uint64(len(d)))(emu, in)
 		},
@@ -825,7 +825,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			if in.Args[5] == 0x0 {
 				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
 			} else {
-				wc := util.AsciiToWinWChar(mb)
+				wc := util.ASCIIToWinWChar(mb)
 				emu.Uc.MemWrite(in.Args[4], wc)
 				return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
 			}

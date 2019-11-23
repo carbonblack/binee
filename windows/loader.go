@@ -291,7 +291,7 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrEntry.BaseDllName = UnicodeString32{}
 		LdrEntry.FullDllName = UnicodeString32{}
 
-		wRealDll := util.AsciiToWinWChar(lpe.RealName)
+		wRealDll := util.ASCIIToWinWChar(lpe.RealName)
 		nameBuf := bytes.NewBuffer(wRealDll)
 		nameLength := len(wRealDll)
 		nameAddr := emu.Heap.Malloc(uint64(nameLength))
