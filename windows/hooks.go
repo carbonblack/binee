@@ -1,7 +1,6 @@
 package windows
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -234,25 +233,28 @@ type Instruction struct {
 	ThreadId int
 }
 
-func (i Instruction) MarshalJSON() ([]byte, error) {
-	buffer := bytes.NewBufferString("{")
-	buffer.WriteString("\"tid\":" + fmt.Sprintf("%d", i.ThreadId) + ",")
-	buffer.WriteString("\"addr\":" + fmt.Sprintf("%d", i.Addr) + ",")
-	buffer.WriteString("\"size\":" + fmt.Sprintf("%d", i.Size) + ",")
-	buffer.WriteString("\"opcode\":\"" + i.Disassemble() + "\"")
-	if i.Hook != nil {
-		buffer.WriteString(",\"lib\":\"" + i.Hook.Lib + "\"")
-		buffer.WriteString(",\"fn\":\"" + i.Hook.Name + "\"")
-		if buf, err := json.Marshal(i.Hook.Parameters); err == nil {
-			buffer.WriteString(",\"parameters\":" + string(buf))
-		}
-		if buf, err := json.Marshal(i.Hook.Values); err == nil {
-			buffer.WriteString(",\"values\":" + string(buf))
-		}
-		buffer.WriteString(",\"return\":" + fmt.Sprintf("%d", i.Hook.Return))
-	}
-	buffer.WriteString("}")
-	return buffer.Bytes(), nil
+func (i *Instruction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Tid        int           `json:"tid"`
+		Addr       uint64        `json:"addr"`
+		Size       uint32        `json:"size"`
+		Opcode     string        `json:"opcode"`
+		Lib        string        `json:"lib,omitempty"`
+		Fn         string        `json:"fn,omitempty"`
+		Parameters []string      `json:"parameters,omitempty"`
+		Values     []interface{} `json:"values,omitempty"`
+		Return     uint64        `json:"return,omitempty"`
+	}{
+		Tid:        i.ThreadId,
+		Addr:       i.Addr,
+		Size:       i.Size,
+		Opcode:     i.Disassemble(),
+		Lib:        i.Hook.Lib,
+		Fn:         i.Hook.Name,
+		Parameters: i.Hook.Parameters,
+		Values:     i.Hook.Values,
+		Return:     i.Hook.Return,
+	})
 }
 
 func (self *Instruction) Address() string {
