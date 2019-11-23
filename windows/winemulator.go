@@ -8,7 +8,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	//import "regexp"
 	cs "github.com/kgwinnup/gapstone"
 
 	"sort"
@@ -19,6 +18,8 @@ import (
 	"github.com/carbonblack/binee/pefile"
 )
 
+// Env is the key/value pair for specifying environment variables for the
+// emulated process
 type Env struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
@@ -99,16 +100,19 @@ type WinEmulator struct {
 	AutoContinue bool
 }
 
-func (self *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
-	self.nameToHook[fname] = hook
+// AddHook makes a new function hook available to the emulated process
+func (e *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
+	e.nameToHook[fname] = hook
 }
 
-func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
+// GetHook will get a hook from the list of available hooks, returning the dll,
+// function name and hook object
+func (e *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	// check if the current address is in some mapped library
-	if lib := self.lookupLibByAddress(addr); lib != "" {
+	if lib := e.lookupLibByAddress(addr); lib != "" {
 		//check if named function has a hook defined
-		if function := self.libAddressFunction[lib][addr]; function != "" {
-			if hook := self.nameToHook[function]; hook != nil {
+		if function := e.libAddressFunction[lib][addr]; function != "" {
+			if hook := e.nameToHook[function]; hook != nil {
 				return lib, function, hook
 			}
 			return lib, function, nil
@@ -318,10 +322,10 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
 		return &emu, err
-	} else {
-		emu.Registry = mockRegistry
-		emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
 	}
+
+	emu.Registry = mockRegistry
+	emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
 
 	err = emu.initPe(pe, path, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
 
@@ -357,10 +361,10 @@ func CreateModuleList(keyvalue map[string]uint64) ModuleList {
 	return ml
 }
 
-// Function looks up a dll given a memory address. Scans each dll's image base
-// and returns the dll name where the address lives
-func (emu *WinEmulator) lookupLibByAddress(addr uint64) string {
-	sml := CreateModuleList(emu.LoadedModules)
+// lookupLibByAddress Function looks up a dll given a memory address. Scans each
+// dll's image base and returns the dll name where the address lives
+func (e *WinEmulator) lookupLibByAddress(addr uint64) string {
+	sml := CreateModuleList(e.LoadedModules)
 	sml.Sort()
 	for i, tuple := range sml {
 		if addr >= tuple.Address {
@@ -380,15 +384,15 @@ func (emu *WinEmulator) lookupLibByAddress(addr uint64) string {
 
 // setLastError will set the error in the proper structure within the emulated
 // memory space
-func (emu *WinEmulator) setLastError(e uint64) error {
-	bs := make([]byte, emu.PtrSize)
+func (e *WinEmulator) setLastError(er uint64) error {
+	bs := make([]byte, e.PtrSize)
 	offset := uint64(0x34)
-	if emu.PtrSize == 8 {
+	if e.PtrSize == 8 {
 		offset = uint64(0x68)
-		binary.LittleEndian.PutUint64(bs, e)
+		binary.LittleEndian.PutUint64(bs, er)
 	} else {
-		binary.LittleEndian.PutUint32(bs, uint32(e))
+		binary.LittleEndian.PutUint32(bs, uint32(er))
 	}
-	err := emu.Uc.MemWrite(emu.MemRegions.TibAddress+offset, bs)
+	err := e.Uc.MemWrite(e.MemRegions.TibAddress+offset, bs)
 	return err
 }
