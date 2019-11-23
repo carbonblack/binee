@@ -16,7 +16,7 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetEnvironmentVariableA", &Hook{
 		Parameters: []string{"a:lpName", "lpBuffer", "nSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			key := util.ReadAscii(emu.Uc, in.Args[0], int(in.Args[2]))
+			key := util.ReadASCII(emu.Uc, in.Args[0], int(in.Args[2]))
 			key = strings.Trim(key, "\x00")
 			key = strings.Trim(key, "\u0000")
 
@@ -55,7 +55,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			}
 
 			if val != "" {
-				buf := util.AsciiToWinWChar(val)
+				buf := util.ASCIIToWinWChar(val)
 				emu.Uc.MemWrite(in.Args[1], buf)
 				return SkipFunctionStdCall(true, uint64(len(val)))(emu, in)
 			}

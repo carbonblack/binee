@@ -17,7 +17,7 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		Parameters: []string{"stream", "_:", "_:", "a:format"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			formatStringAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 4)
-			formatString := util.ReadAscii(emu.Uc, formatStringAddr, 0)
+			formatString := util.ReadASCII(emu.Uc, formatStringAddr, 0)
 			startVarArgsAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 6)
 
 			numFormatters := util.ParseFormatter(formatString)
@@ -109,7 +109,7 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "atoi", &Hook{
 		Parameters: []string{},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			if n, err := strconv.Atoi(util.ReadAscii(emu.Uc, in.Args[0], 20)); err != nil {
+			if n, err := strconv.Atoi(util.ReadASCII(emu.Uc, in.Args[0], 20)); err != nil {
 				return SkipFunctionStdCall(true, 0)(emu, in)
 			} else {
 				return SkipFunctionStdCall(true, uint64(n))(emu, in)

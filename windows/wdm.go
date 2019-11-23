@@ -11,7 +11,7 @@ func WdmHooks(emu *WinEmulator) {
 		Parameters: []string{"a:format"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			formatStringAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 1)
-			formatString := util.ReadAscii(emu.Uc, formatStringAddr, 0)
+			formatString := util.ReadASCII(emu.Uc, formatStringAddr, 0)
 			startVarArgsAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 3)
 
 			numFormatters := util.ParseFormatter(formatString)

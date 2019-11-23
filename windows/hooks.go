@@ -291,7 +291,7 @@ func (self *Instruction) ParseValues() {
 			s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
 			self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
 		case "a:":
-			s := util.ReadAscii(self.emu.Uc, self.Args[i], 0)
+			s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
 			self.Hook.Values[i] = strings.TrimRight(s, "\x00")
 		case "v:":
 			continue
@@ -324,7 +324,7 @@ func (self *Instruction) String() string {
 				s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
 				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
 			case "a:":
-				s := util.ReadAscii(self.emu.Uc, self.Args[i], 0)
+				s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
 				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
 			case "v:":
 				ret += fmt.Sprintf("%s = %+v", self.Hook.Parameters[i][2:], self.Hook.Values[i])

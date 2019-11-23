@@ -40,7 +40,7 @@ func GetModuleHandle(emu *WinEmulator, in *Instruction, wide bool) uint64 {
 		if wide {
 			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
 		} else {
-			s = strings.ToLower(util.ReadAscii(emu.Uc, in.Args[0], 0))
+			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
 		}
 		return emu.LoadedModules[s]
 	}
@@ -56,7 +56,7 @@ func getModuleHandleEx(emu *WinEmulator, in *Instruction, wide bool) uint64 {
 		if wide == true {
 			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
 		} else {
-			s = strings.ToLower(util.ReadAscii(emu.Uc, in.Args[1], 0))
+			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[1], 0))
 		}
 		hinstance = emu.LoadedModules[s]
 		if hinstance == 0 {
@@ -70,7 +70,7 @@ func getEnvironmentStrings(emu *WinEmulator, in *Instruction, wide bool) func(em
 	b := make([]byte, 0, 100)
 	for _, entry := range emu.Opts.Env {
 		if wide {
-			s := util.AsciiToWinWChar(entry.Key + "=" + entry.Value)
+			s := util.ASCIIToWinWChar(entry.Key + "=" + entry.Value)
 			b = append(b, s[:]...)
 			b = append(b, 0x00)
 		} else {
@@ -90,7 +90,7 @@ func getEnvironmentStrings(emu *WinEmulator, in *Instruction, wide bool) func(em
 func createFile(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
 	var path string
 	if wide == false {
-		path = util.ReadAscii(emu.Uc, in.Args[0], 0)
+		path = util.ReadASCII(emu.Uc, in.Args[0], 0)
 	} else {
 		path = util.ReadWideChar(emu.Uc, in.Args[0], 0)
 	}
@@ -113,7 +113,7 @@ func loadLibrary(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmul
 	if wide {
 		orig = util.ReadWideChar(emu.Uc, in.Args[0], 100)
 	} else {
-		orig = util.ReadAscii(emu.Uc, in.Args[0], 100)
+		orig = util.ReadASCII(emu.Uc, in.Args[0], 100)
 	}
 	name = strings.ToLower(orig)
 	name = strings.Replace(name, "c:\\windows\\system32\\", "", -1)
@@ -370,10 +370,10 @@ func KernelbaseHooks(emu *WinEmulator) {
 			f := ""
 			if in.Args[0] == 0x0 {
 				f = "C:\\Users\\" + emu.Opts.User + "\\" + filepath.Base(emu.Binary)
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(f))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(f))
 			} else {
 				f = "C:\\Windows\\System32\\" + filepath.Base(emu.Binary)
-				emu.Uc.MemWrite(in.Args[1], util.AsciiToWinWChar(f))
+				emu.Uc.MemWrite(in.Args[1], util.ASCIIToWinWChar(f))
 			}
 			return SkipFunctionStdCall(true, uint64(len(f)+2))(emu, in)
 		},
@@ -418,7 +418,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetProcAddress", &Hook{
 		Parameters: []string{"hModule", "a:lpProcName"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			name := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
 			if dllname := emu.lookupLibByAddress(in.Args[0]); dllname != "" {
 				addr := emu.libFunctionAddress[dllname][name]
 				return SkipFunctionStdCall(true, addr)(emu, in)
@@ -497,7 +497,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetSystemDirectoryW", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			dir := util.AsciiToWinWChar("c:\\windows\\system32")
+			dir := util.ASCIIToWinWChar("c:\\windows\\system32")
 			emu.Uc.MemWrite(in.Args[0], dir)
 			return SkipFunctionStdCall(true, uint64(len(dir)))(emu, in)
 		},
@@ -620,7 +620,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetWindowsDirectoryW", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			d := util.AsciiToWinWChar("c:\\windows")
+			d := util.ASCIIToWinWChar("c:\\windows")
 			emu.Uc.MemWrite(in.Args[0], d)
 			return SkipFunctionStdCall(true, uint64(len(d)))(emu, in)
 		},
@@ -798,7 +798,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			if in.Args[0] == 0x1 || in.Args[0] == 0x2 || in.Args[0] == 0x3 {
 				// TODO this could be problematic, need to do a deep copy of this Hook when it is initiated maybe
 				in.Hook.Parameters[1] = "s:lpBuffer"
-				s := util.ReadAscii(emu.Uc, in.Args[1], 0)
+				s := util.ReadASCII(emu.Uc, in.Args[1], 0)
 				in.Hook.Values[1] = s
 				return SkipFunctionStdCall(true, uint64(len(s)))(emu, in)
 			}
@@ -819,13 +819,13 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "MultiByteToWideChar", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "a:lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadAscii(emu.Uc, in.Args[2], 0)
+			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
 
 			// check if multibyte function is only getting buffer size
 			if in.Args[5] == 0x0 {
 				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
 			} else {
-				wc := util.AsciiToWinWChar(mb)
+				wc := util.ASCIIToWinWChar(mb)
 				emu.Uc.MemWrite(in.Args[4], wc)
 				return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
 			}
@@ -836,7 +836,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "WideCharToMultiByte", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "w:lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadAscii(emu.Uc, in.Args[2], 0)
+			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
 
 			// check if multibyte function is only getting buffer size
 			if in.Args[5] == 0x0 {
