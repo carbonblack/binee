@@ -3,9 +3,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/carbonblack/binee/pefile"
 	"github.com/carbonblack/binee/util"
