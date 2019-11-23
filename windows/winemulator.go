@@ -1,17 +1,23 @@
 package windows
 
-import "gopkg.in/yaml.v2"
-import "os"
-import "io/ioutil"
-import "time"
-import "github.com/carbonblack/binee/pefile"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"io/ioutil"
+	"os"
+	"time"
 
-//import "regexp"
-import cs "github.com/kgwinnup/gapstone"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
-import "sort"
-import core "github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/pefile"
+	"gopkg.in/yaml.v2"
+
+	//import "regexp"
+	cs "github.com/kgwinnup/gapstone"
+
+	"sort"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+
+	core "github.com/carbonblack/binee/core"
+)
 
 type Env struct {
 	Key   string `yaml:"key"`
@@ -102,7 +108,6 @@ func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	if lib := self.LookupLibByAddress(addr); lib != "" {
 		//check if named function has a hook defined
 		if function := self.libAddressFunction[lib][addr]; function != "" {
-			//if hook := emu.ResolveNameToHook(name, function); hook != nil {
 			if hook := self.nameToHook[function]; hook != nil {
 				return lib, function, hook
 			}
@@ -113,7 +118,31 @@ func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	return "", "", nil
 }
 
-func New(path string, arch, mode int, args []string, verbose int, config string, showDll bool, calldllmain bool) (WinEmulator, error) {
+// WinEmulatorOptions will get passed into the WinEmulator
+type WinEmulatorOptions struct {
+	RootFolder   string
+	RunDLLMain   bool
+	ConfigPath   string
+	VerboseLevel int
+	ShowDLL      bool
+}
+
+// InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
+func InitWinEmulatorOptions() *WinEmulatorOptions {
+	return &WinEmulatorOptions{
+		RootFolder:   "os/win10_32/",
+		RunDLLMain:   false,
+		ConfigPath:   "",
+		VerboseLevel: 0,
+		ShowDLL:      false,
+	}
+}
+
+func New(path string, arch, mode int, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+	if options == nil {
+		options = InitWinEmulatorOptions()
+	}
+
 	var err error
 	emu := WinEmulator{}
 	emu.UcMode = mode
@@ -121,7 +150,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Timestamp = time.Now().Unix()
 	emu.Ticks = 1
 	emu.Binary = path
-	emu.Verbosity = verbose
+	emu.Verbosity = options.VerboseLevel
 	emu.Args = args
 	emu.Argc = uint64(len(args))
 	emu.nameToHook = make(map[string]*Hook)
@@ -131,7 +160,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.libRealLib = make(map[string]string)
 	emu.Handles = make(map[uint64]*Handle)
 	//this is the first thread
-	emu.ShowDll = showDll
+	emu.ShowDll = options.ShowDLL
 	emu.MemRegions = &MemRegions{}
 	// define each memory section's size
 	emu.MemRegions.ProcInfoSize = uint64(4 * 1024 * 1024)
@@ -147,7 +176,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 		emu.PtrSize = 4
 
 		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_32); err != nil {
-			return emu, err
+			return nil, err
 		}
 
 		emu.MemRegions.GdtAddress = 0xc0000000
@@ -162,7 +191,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 		emu.PtrSize = 8
 
 		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_64); err != nil {
-			return emu, err
+			return nil, err
 		}
 
 		emu.MemRegions.ProcInfoAddress = 0x7ffdf000
@@ -202,7 +231,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Opts.SystemTime.Minute = time.Now().Minute()
 	emu.Opts.SystemTime.Second = time.Now().Second()
 	emu.Opts.SystemTime.Millisecond = 14
-	emu.Opts.Root = "os/win10_32/"
+	emu.Opts.Root = options.RootFolder
 	emu.Opts.Env = make([]Env, 20)
 	emu.Opts.Env = append(emu.Opts.Env, Env{"ALLUSERSPROFILE", "C:\\ProgramData"})
 	emu.Opts.Env = append(emu.Opts.Env, Env{"APPDATA", "C:\\Users\\" + emu.Opts.User + "\\AppData\\roaming"})
@@ -265,7 +294,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Opts.TempRegistry["HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\PowerShell\\1\\PID"] = "89383-100-0001260-04309"
 
 	var buf []byte
-	if buf, err = ioutil.ReadFile(config); err == nil {
+	if buf, err = ioutil.ReadFile(options.ConfigPath); err == nil {
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
 
@@ -273,7 +302,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
-		return emu, err
+		return &emu, err
 	} else {
 		emu.Registry = mockRegistry
 		emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
@@ -282,14 +311,14 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	//load the PE
 	pe, err := pefile.LoadPeFile(emu.Binary)
 	if err != nil {
-		return emu, err
+		return nil, err
 	}
-	err = emu.initPe(pe, path, arch, mode, args, calldllmain)
+	err = emu.initPe(pe, path, arch, mode, args, options.RunDLLMain)
 
 	emu.Cpu = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
 	emu.Scheduler = NewScheduleManager(&emu)
 
-	return emu, err
+	return &emu, err
 }
 
 // ModulePair is used to keep track of the emulator address of a loaded module.

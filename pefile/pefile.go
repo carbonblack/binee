@@ -573,19 +573,16 @@ func (self *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) er
 }
 
 func (self *PeFile) ImportedDlls() []string {
-	temp := make(map[string]string)
+	var dllNames []string
+	present := make(map[string]bool)
 	for _, importInfo := range self.Imports {
-		if temp[importInfo.DllName] == "" {
-			temp[importInfo.DllName] = importInfo.DllName
+		if present[importInfo.DllName] {
+			continue
 		}
+		present[importInfo.DllName] = true
+		dllNames = append(dllNames, importInfo.DllName)
 	}
-
-	temp2 := make([]string, 0, len(temp))
-	for k := range temp {
-		temp2 = append(temp2, k)
-	}
-
-	return temp2
+	return dllNames
 }
 
 func (self *PeFile) getSectionByRva(rva uint32) *Section {
@@ -709,10 +706,19 @@ func (self *PeFile) readImports() {
 				}
 				if thunk1&0x8000000000000000 > 0 {
 					// parse by ordinal
+					func_name := ""
+					ord := uint16(thunk1 & 0xffff)
+					self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), ord})
+					thunk2 += 8
+
 				} else {
-					func_name := readString(section.Raw[uint32(thunk1)+2-section.VirtualAddress:])
-					self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
-					thunk2 += 4
+					// might be in a different section
+					if sec := self.getSectionByRva(uint32(thunk1) + 2); sec != nil {
+						v := uint32(thunk1) + 2 - sec.VirtualAddress
+						func_name := readString(sec.Raw[v:])
+						self.Imports = append(self.Imports, &ImportInfo{name, func_name, uint64(thunk2), 0})
+						thunk2 += 8
+					}
 				}
 			}
 		}
