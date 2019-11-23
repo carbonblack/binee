@@ -5,14 +5,13 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+	"sort"
 
 	"gopkg.in/yaml.v2"
 
-	"sort"
-
 	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
-	core "github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/core"
 	"github.com/carbonblack/binee/pefile"
 )
 
