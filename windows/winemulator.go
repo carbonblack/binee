@@ -384,15 +384,15 @@ func (emu *WinEmulator) lookupLibByAddress(addr uint64) string {
 
 // setLastError will set the error in the proper structure within the emulated
 // memory space
-func (e *WinEmulator) setLastError(er uint64) error {
-	bs := make([]byte, e.PtrSize)
+func (emu *WinEmulator) setLastError(er uint64) error {
+	bs := make([]byte, emu.PtrSize)
 	offset := uint64(0x34)
-	if e.PtrSize == 8 {
+	if emu.PtrSize == 8 {
 		offset = uint64(0x68)
 		binary.LittleEndian.PutUint64(bs, er)
 	} else {
 		binary.LittleEndian.PutUint32(bs, uint32(er))
 	}
-	err := e.Uc.MemWrite(e.MemRegions.TibAddress+offset, bs)
+	err := emu.Uc.MemWrite(emu.MemRegions.TibAddress+offset, bs)
 	return err
 }
