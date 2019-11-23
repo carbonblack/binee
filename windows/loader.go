@@ -299,7 +299,16 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrEntry.FullDllName.Length = uint16(nameLength)
 		LdrEntry.FullDllName.MaximumLength = uint16(nameLength)
 		LdrEntry.EntryPoint = uint32(lpe.EntryPoint())
-		LdrEntry.DllBase = uint32(lpe.OptionalHeader.(*pefile.OptionalHeader32).ImageBase)
+		var imageBase uint32
+		switch optHdr := lpe.OptionalHeader.(type) {
+		case *pefile.OptionalHeader32:
+			imageBase = uint32(optHdr.ImageBase)
+		case *pefile.OptionalHeader32P:
+			imageBase = uint32(optHdr.ImageBase)
+		default:
+			panic(fmt.Errorf("support for %T not yet implemented", lpe.OptionalHeader))
+		}
+		LdrEntry.DllBase = imageBase
 		LdrEntry.SizeOfImage = uint32(lpe.ImageSize)
 		LdrEntry.TlsIndex = uint16(index)
 
