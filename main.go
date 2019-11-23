@@ -10,8 +10,6 @@ import (
 	"github.com/carbonblack/binee/pefile"
 	"github.com/carbonblack/binee/util"
 	"github.com/carbonblack/binee/windows"
-
-	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 )
 
 func main() {
@@ -126,10 +124,10 @@ func main() {
 	options.RootFolder = *rootFolder
 	options.ShowDLL = *showDLL
 	options.RunDLLMain = *runDLLMain
+	options.AsJSON = *outputJSON
 
 	// now start the emulator with the various options
-	emu, err := windows.New(flag.Args()[0], uc.ARCH_X86, uc.MODE_32, flag.Args()[1:], options)
-	emu.AsJson = *outputJSON
+	emu, err := windows.Load(flag.Args()[0], flag.Args()[1:], options)
 	if err != nil {
 		log.Fatal(err)
 	}

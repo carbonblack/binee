@@ -668,7 +668,7 @@ func (emu *WinEmulator) initMemory() error {
 }
 
 func (emu *WinEmulator) initRegisters() error {
-	if emu.UcMode == uc.MODE_32 {
+	if emu.PtrSize == 4 {
 
 		if err := emu.Uc.RegWrite(uc.X86_REG_EDI, emu.EntryPoint); err != nil {
 			return err
@@ -722,7 +722,7 @@ func (emu *WinEmulator) initRegisters() error {
 	return nil
 }
 
-//Add dll to ropchain for calling DllMain
+// SetupDllMainCallstack Add dll to ropchain for calling DllMain
 func (emu *WinEmulator) SetupDllMainCallstack(dll *pefile.PeFile) {
 	//TODO: make this 64-bit aware, this implementation is only 32 bit currently.
 	if emu.PtrSize == 4 {

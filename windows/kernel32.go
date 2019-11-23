@@ -419,7 +419,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"hModule", "a:lpProcName"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			name := util.ReadAscii(emu.Uc, in.Args[1], 0)
-			if dllname := emu.LookupLibByAddress(in.Args[0]); dllname != "" {
+			if dllname := emu.lookupLibByAddress(in.Args[0]); dllname != "" {
 				addr := emu.libFunctionAddress[dllname][name]
 				return SkipFunctionStdCall(true, addr)(emu, in)
 			}
@@ -731,7 +731,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "SetLastError", &Hook{
 		Parameters: []string{"dwErrCode"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			emu.SetLastError(in.Args[0])
+			emu.setLastError(in.Args[0])
 			return SkipFunctionStdCall(false, 0x1)(emu, in)
 		},
 	})
