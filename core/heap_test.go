@@ -3,7 +3,7 @@ package core_test
 import (
 	"testing"
 
-	core "github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/core"
 )
 
 func TestHeapFree(t *testing.T) {

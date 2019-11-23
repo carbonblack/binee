@@ -5,16 +5,13 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+	"sort"
 
 	"gopkg.in/yaml.v2"
 
-	cs "github.com/kgwinnup/gapstone"
-
-	"sort"
-
 	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
-	core "github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/core"
 	"github.com/carbonblack/binee/pefile"
 )
 
@@ -67,7 +64,6 @@ type WinEmulator struct {
 	UcArch             int
 	PtrSize            uint64
 	Uc                 uc.Unicorn
-	Cs                 cs.Engine
 	Timestamp          int64
 	Ticks              uint64
 	Binary             string
@@ -193,11 +189,6 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
-
-		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_32); err != nil {
-			return nil, err
-		}
-
 		emu.MemRegions.GdtAddress = 0xc0000000
 		emu.MemRegions.StackAddress = 0xb0000000
 		emu.MemRegions.HeapAddress = 0xa0000000
@@ -208,11 +199,6 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 
 	} else {
 		emu.PtrSize = 8
-
-		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_64); err != nil {
-			return nil, err
-		}
-
 		emu.MemRegions.ProcInfoAddress = 0x7ffdf000
 		emu.MemRegions.GdtAddress = 0xc0000000
 		emu.MemRegions.StackAddress = 0xfee792a000
