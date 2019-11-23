@@ -101,18 +101,18 @@ type WinEmulator struct {
 }
 
 // AddHook makes a new function hook available to the emulated process
-func (e *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
-	e.nameToHook[fname] = hook
+func (emu *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
+	emu.nameToHook[fname] = hook
 }
 
 // GetHook will get a hook from the list of available hooks, returning the dll,
 // function name and hook object
-func (e *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
+func (emu *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	// check if the current address is in some mapped library
-	if lib := e.lookupLibByAddress(addr); lib != "" {
+	if lib := emu.lookupLibByAddress(addr); lib != "" {
 		//check if named function has a hook defined
-		if function := e.libAddressFunction[lib][addr]; function != "" {
-			if hook := e.nameToHook[function]; hook != nil {
+		if function := emu.libAddressFunction[lib][addr]; function != "" {
+			if hook := emu.nameToHook[function]; hook != nil {
 				return lib, function, hook
 			}
 			return lib, function, nil
@@ -363,8 +363,8 @@ func CreateModuleList(keyvalue map[string]uint64) ModuleList {
 
 // lookupLibByAddress Function looks up a dll given a memory address. Scans each
 // dll's image base and returns the dll name where the address lives
-func (e *WinEmulator) lookupLibByAddress(addr uint64) string {
-	sml := CreateModuleList(e.LoadedModules)
+func (emu *WinEmulator) lookupLibByAddress(addr uint64) string {
+	sml := CreateModuleList(emu.LoadedModules)
 	sml.Sort()
 	for i, tuple := range sml {
 		if addr >= tuple.Address {
