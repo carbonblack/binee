@@ -104,6 +104,7 @@ func (r *Registry) Insert(key string, name string, item *Reg) error {
 		// found key, split the name into an array to iterate the path
 		return r.insert(hkey, strings.Split(name, "\\"), item)
 	}
+
 	return fmt.Errorf("Registry key not found '%v'", key)
 }
 
@@ -130,14 +131,13 @@ func (r *Registry) insert(cur *Reg, path []string, item *Reg) error {
 	// check if key already exists
 	if _key, ok := cur.subkeys[path[0]]; ok {
 		return r.insert(_key, path[1:], item)
-	} else {
-		// this must be a new key, add the new registry item and insert into it
-		newkey := &Reg{path[0], "", make(map[string]*Reg)}
-		cur.subkeys[newkey.Name] = newkey
-		r.Size++
-		return r.insert(newkey, path[1:], item)
 	}
 
+	// this must be a new key, add the new registry item and insert into it
+	newkey := &Reg{path[0], "", make(map[string]*Reg)}
+	cur.subkeys[newkey.Name] = newkey
+	r.Size++
+	return r.insert(newkey, path[1:], item)
 }
 
 // Enum is used with MSDN's reg enum, will allow for enumerating a registry key
@@ -151,9 +151,9 @@ func (r *Registry) Enum(hkey string, name string, index int) (*Reg, error) {
 			i++
 		}
 		return nil, fmt.Errorf("Invalid index for RegEnum '%v/%s' %d", hkey, name, index)
-	} else {
-		return nil, fmt.Errorf("Registry key not found '%v/%s'", hkey, name)
 	}
+
+	return nil, fmt.Errorf("Registry key not found '%v/%s'", hkey, name)
 }
 
 // Get will retrieve some item from the regisry given a key and path
@@ -173,12 +173,11 @@ func (r *Registry) get(cur *Reg, path []string) (*Reg, error) {
 	if k, ok := cur.subkeys[path[0]]; ok {
 		if len(path) == 1 {
 			return k, nil
-		} else {
-			return r.get(k, path[1:])
 		}
-	} else {
-		return nil, fmt.Errorf("Registry item not found")
+		return r.get(k, path[1:])
 	}
+
+	return nil, fmt.Errorf("Registry item not found")
 }
 
 // Update will update a value within the registry structure
@@ -199,12 +198,11 @@ func (r *Registry) update(cur *Reg, path []string, value string) error {
 		if len(path) == 1 {
 			key.Value = value
 			return nil
-		} else {
-			return r.update(key, path[1:], value)
 		}
-	} else {
-		return fmt.Errorf("Registry update failed, name not found '%v'", strings.Join(path, "\\"))
+		return r.update(key, path[1:], value)
 	}
+
+	return fmt.Errorf("Registry update failed, name not found '%v'", strings.Join(path, "\\"))
 }
 
 // NewRegistry creates a new registry hive with soje default values
