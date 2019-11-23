@@ -100,7 +100,7 @@ func (emu *WinEmulator) StartSingleStep() error {
 
 func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 	return func(mu uc.Unicorn, addr uint64, size uint32) {
-		emu.Ticks += 1
+		emu.Ticks++
 
 		// capture next address, if cur address is a function call, next address is the ret address
 		instruction := emu.BuildInstruction(addr, size)
