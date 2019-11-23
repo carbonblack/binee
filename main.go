@@ -20,7 +20,6 @@ func main() {
 	configFilePath := flag.String("c", "", "path to configuration file")
 	listExports := flag.Bool("e", false, "dump pe file's exports table")
 	listImports := flag.Bool("i", false, "dump a pe file's imports table")
-	showHelp := flag.Bool("h", false, "show help menu")
 	outputJSON := flag.Bool("j", false, "output data as json")
 	verbose2 := flag.Bool("vv", false, "verbose level 2")
 	verbose1 := flag.Bool("v", false, "verbose level 1")
@@ -28,11 +27,6 @@ func main() {
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
 
 	flag.Parse()
-
-	if *showHelp {
-		flag.PrintDefaults()
-		return
-	}
 
 	verboseLevel := 0
 	if *verbose1 {
