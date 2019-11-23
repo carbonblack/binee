@@ -100,9 +100,9 @@ type ProcessEnvironmentBlock32 struct {
 	SystemReserved                     [1]uint32
 	ExecuteOptionsSpareBits            uint32
 	FreeList                           uint32
-	TlsExpansionCounter                uint32
-	TlsBitmap                          uint32
-	TlsBitmapBits                      [2]uint32
+	TLSExpansionCounter                uint32
+	TLSBitmap                          uint32
+	TLSBitmapBits                      [2]uint32
 	ReadOnlySharedMemoryBase           uint32
 	ReadOnlySharedMemoryHeap           uint32
 	ReadOnlyStaticServerData           uint32
@@ -127,16 +127,16 @@ type ProcessEnvironmentBlock32 struct {
 	OsMinorVersion                     int32
 	OsBuildNumber                      uint16
 	OsCSDVersion                       uint16
-	OSPlatformId                       uint32
+	OSPlatformID                       uint32
 	ImageSubsystem                     uint32
 	ImageSubsystemMajorVersion         uint32
 	ImageSubsystemMinorVersion         uint32
 	ImageProcessAffinityMask           uint32
 	GdiHandleBuffer                    [34]uint32
 	PostProcessInitRoutine             uint32
-	TlsExpansionBitmap                 uint32
-	TlsExpansionBitmapBits             [32]uint32
-	SessionId                          uint32
+	TLSExpansionBitmap                 uint32
+	TLSExpansionBitmapBits             [32]uint32
+	SessionID                          uint32
 	AppCompatFlags                     uint64
 	AppCompatFlagsUser                 uint64
 	ShimData                           uint32
@@ -166,7 +166,7 @@ type ProcessEnvironmentBlock32 struct {
 	CloudFileFlags                     uint32
 }
 
-type ClientId struct {
+type ClientID struct {
 	ProcessHandle uint32
 	ThreadHandle  uint32
 }
@@ -607,11 +607,11 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 		// tls buffer
 
 		// client id
-		clientId := ClientId{0x41414141, 0x42424242}
-		clientIdBuf := new(bytes.Buffer)
-		binary.Write(clientIdBuf, binary.LittleEndian, &clientId)
-		clientIdAddress := emu.Heap.Malloc(uint64(binary.Size(&clientId)))
-		emu.Uc.MemWrite(clientIdAddress, clientIdBuf.Bytes())
+		clientID := ClientID{0x41414141, 0x42424242}
+		clientIDBuf := new(bytes.Buffer)
+		binary.Write(clientIDBuf, binary.LittleEndian, &clientID)
+		clientIDAddress := emu.Heap.Malloc(uint64(binary.Size(&clientID)))
+		emu.Uc.MemWrite(clientIDAddress, clientIDBuf.Bytes())
 
 		// PEB
 		pebAddress := emu.initPEB(pe)
