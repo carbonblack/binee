@@ -1,8 +1,11 @@
 package windows
 
-import "time"
-import "strconv"
-import "github.com/carbonblack/binee/util"
+import (
+	"strconv"
+	"time"
+
+	"github.com/carbonblack/binee/util"
+)
 
 //import "fmt"
 

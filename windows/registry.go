@@ -1,11 +1,13 @@
 package windows
 
-import "encoding/binary"
-import "strconv"
-import "encoding/hex"
-import "strings"
-import "fmt"
-import "regexp"
+import (
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+)
 
 func hkeyMap(n uint64) string {
 	m := map[uint64]string{

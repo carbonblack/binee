@@ -1,14 +1,18 @@
 package windows
 
-import "encoding/binary"
-import "runtime"
-import "fmt"
-import "github.com/carbonblack/binee/util"
-import "strings"
-import "bytes"
-import "encoding/json"
-import "os"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"os"
+	"runtime"
+	"strings"
+
+	"github.com/carbonblack/binee/util"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 func (emu *WinEmulator) LoadHooks() {
 	KernelbaseHooks(emu)

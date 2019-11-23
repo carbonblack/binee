@@ -1,12 +1,16 @@
 package windows
 
-import "fmt"
-import "github.com/carbonblack/binee/util"
-import "strings"
-import "os"
-import "github.com/chzyer/readline"
-import "strconv"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/carbonblack/binee/util"
+	"github.com/chzyer/readline"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 func execCurrentInstr(emu *WinEmulator, addr uint64, size uint32) (bool, *Instruction) {
 	instruction := emu.BuildInstruction(addr, size)

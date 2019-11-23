@@ -1,9 +1,11 @@
 package windows
 
-import "fmt"
-import "os"
-import "strings"
-import "path/filepath"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 type Handle struct {
 	Path   string

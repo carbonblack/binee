@@ -1,10 +1,12 @@
 package main
 
-import "testing"
-import "os/exec"
-import "strings"
-import "encoding/json"
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"os/exec"
+	"strings"
+	"testing"
+)
 
 type JsonOutput struct {
 	Tid        int           `json:"tid"`
