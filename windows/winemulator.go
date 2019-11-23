@@ -158,7 +158,7 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 		return nil, err
 	}
 
-	emu := WinEmulator{}
+	emu := &WinEmulator{}
 	emu.UcArch = uc.ARCH_X86
 	if pe.PeType == pefile.Pe32 {
 		emu.UcMode = uc.MODE_32
@@ -321,7 +321,7 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
-		return &emu, err
+		return nil, err
 	}
 
 	emu.Registry = mockRegistry
@@ -330,9 +330,9 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	err = emu.initPe(pe, path, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
 
 	emu.CPU = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
-	emu.Scheduler = NewScheduleManager(&emu)
+	emu.Scheduler = NewScheduleManager(emu)
 
-	return &emu, err
+	return emu, err
 }
 
 // ModulePair is used to keep track of the emulator address of a loaded module.

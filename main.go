@@ -93,14 +93,14 @@ func main() {
 	}
 
 	// quit if no binary is passed in
-	if len(flag.Args()) == 0 {
+	if flag.NArg() == 0 {
 		flag.PrintDefaults()
 		return
 	}
 
 	// print the binaries import table
 	if *listImports {
-		if pe, err := pefile.LoadPeFile(flag.Args()[0]); err == nil {
+		if pe, err := pefile.LoadPeFile(flag.Arg(0)); err == nil {
 			for _, importInfo := range pe.Imports {
 				fmt.Printf("%s.%s => 0x%x\n", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
 			}
@@ -110,7 +110,7 @@ func main() {
 
 	// print the binaries export table
 	if *listExports {
-		if pe, err := pefile.LoadPeFile(flag.Args()[0]); err == nil {
+		if pe, err := pefile.LoadPeFile(flag.Arg(0)); err == nil {
 			for _, export := range pe.Exports {
 				fmt.Println(export.Name)
 			}
@@ -127,7 +127,7 @@ func main() {
 	options.AsJSON = *outputJSON
 
 	// now start the emulator with the various options
-	emu, err := windows.Load(flag.Args()[0], flag.Args()[1:], options)
+	emu, err := windows.Load(flag.Arg(0), flag.Args()[1:], options)
 	if err != nil {
 		log.Fatal(err)
 	}
