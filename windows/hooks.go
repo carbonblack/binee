@@ -133,16 +133,16 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 					emu.CPU.PrintStack(10)
 				} else {
 				}
-				fmt.Println(instruction.HookString())
+				fmt.Println(instruction.StringHook())
 				fmt.Println(instruction)
 			} else if emu.Verbosity == 1 {
-				if s := instruction.HookString(); s != "" {
+				if s := instruction.StringHook(); s != "" {
 					fmt.Println(s)
 				}
 				fmt.Println(instruction)
 			} else {
 				if instruction.Hook.Implemented == true {
-					fmt.Println(instruction.HookString())
+					fmt.Println(instruction.StringHook())
 				}
 			}
 		}
@@ -310,9 +310,9 @@ func (i *Instruction) String() string {
 	return fmt.Sprintf("[%d] %s: %s", i.ThreadId, i.Address(), i.Disassemble())
 }
 
-// HookString will print the hook string value if a hook is implemented,
+// StringHook will print the hook string value if a hook is implemented,
 // otherwise empty string
-func (i *Instruction) HookString() string {
+func (i *Instruction) StringHook() string {
 	if i.Hook.Implemented == false {
 		return ""
 	}
