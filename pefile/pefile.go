@@ -219,20 +219,24 @@ func (pe *PeFile) SetImageBase(imageBase uint64) error {
 	return pe.updateRelocations()
 }
 
+// ImageBase returns the base address of the PE file
 func (pe *PeFile) ImageBase() uint64 {
 	if pe.PeType == Pe32 {
 		return uint64(pe.OptionalHeader.(*OptionalHeader32).ImageBase)
-	} else {
-		return pe.OptionalHeader.(*OptionalHeader32P).ImageBase
 	}
+
+	// PE+ base addr
+	return pe.OptionalHeader.(*OptionalHeader32P).ImageBase
 }
 
+// EntryPoint returns the entry point of the PE file
 func (pe *PeFile) EntryPoint() uint32 {
 	if pe.PeType == Pe32 {
 		return pe.OptionalHeader.(*OptionalHeader32).AddressOfEntryPoint
-	} else {
-		return pe.OptionalHeader.(*OptionalHeader32P).AddressOfEntryPoint
 	}
+
+	// PE+ entry point
+	return pe.OptionalHeader.(*OptionalHeader32P).AddressOfEntryPoint
 }
 
 // LoadPeFile will parse a file from disk, given a path. The output will be a
