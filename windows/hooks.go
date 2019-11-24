@@ -135,12 +135,16 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 						emu.CPU.PrintStack(10)
 					} else {
 					}
+					fmt.Println(instruction.HookString())
 					fmt.Println(instruction)
 				} else if emu.Verbosity == 1 {
+					if s := instruction.HookString(); s != "" {
+						fmt.Println(s)
+					}
 					fmt.Println(instruction)
 				} else {
 					if instruction.Hook.Implemented == true {
-						fmt.Println(instruction)
+						fmt.Println(instruction.HookString())
 					}
 				}
 			}
@@ -303,49 +307,52 @@ func (self *Instruction) ParseValues() {
 	}
 }
 
-func (self *Instruction) String() string {
-	if self.Hook.Implemented == false {
-		return fmt.Sprintf("[%d] %s: %s", self.ThreadId, self.Address(), self.Disassemble())
-	} else {
+// StringInstruction will print the instructino disassembly of the current EIP
+// position
+func (i *Instruction) String() string {
+	return fmt.Sprintf("[%d] %s: %s", i.ThreadId, i.Address(), i.Disassemble())
+}
 
-		ret := ""
-		ret += fmt.Sprintf("[%d] %s: %s %s(", self.ThreadId, self.Address(), self.Hook.HookStatus, self.Hook.Name)
-		for i := range self.Args {
-
-			if len(self.Hook.Parameters[i]) < 2 {
-				ret += fmt.Sprintf("%s = 0x%x", self.Hook.Parameters[i], self.Args[i])
-				continue
-			}
-
-			switch self.Hook.Parameters[i][0:2] {
-			case "_:":
-				continue
-			case "w:":
-				s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
-			case "a:":
-				s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
-			case "v:":
-				ret += fmt.Sprintf("%s = %+v", self.Hook.Parameters[i][2:], self.Hook.Values[i])
-			case "s:":
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], self.Hook.Values[i])
-			default:
-				ret += fmt.Sprintf("%s = 0x%x", self.Hook.Parameters[i], self.Args[i])
-			}
-
-			if i != len(self.Args)-1 {
-				ret += fmt.Sprintf(", ")
-			}
-		}
-		ret += fmt.Sprintf(") = 0x%x", self.Hook.Return)
-		if self.Hook.HookStatus != "F" {
-			// TODO kgwinnup lookup why you did this -> && self.Hook.HookStatus != "P" {
-			// print instruction at function entry point if not fully hooked.
-			ret += fmt.Sprintf("\n[%d] %s: %s", self.ThreadId, self.Address(), self.Disassemble())
-		}
-		return ret
+// HookString will print the hook string value if a hook is implemented,
+// otherwise empty string
+func (i *Instruction) HookString() string {
+	if i.Hook.Implemented == false {
+		return ""
 	}
+
+	ret := ""
+	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadId, i.Address(), i.Hook.HookStatus, i.Hook.Name)
+	for j := range i.Args {
+
+		if len(i.Hook.Parameters[j]) < 2 {
+			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+			continue
+		}
+
+		switch i.Hook.Parameters[j][0:2] {
+		case "_:":
+			continue
+		case "w:":
+			s := util.ReadWideChar(i.emu.Uc, i.Args[j], 0)
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+		case "a:":
+			s := util.ReadASCII(i.emu.Uc, i.Args[j], 0)
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+		case "v:":
+			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		case "s:":
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		default:
+			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+		}
+
+		if j != len(i.Args)-1 {
+			ret += fmt.Sprintf(", ")
+		}
+	}
+	ret += fmt.Sprintf(") = 0x%x", i.Hook.Return)
+
+	return ret
 }
 
 // VaArgsParse will take address to first value, number of values
