@@ -125,27 +125,24 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 				fmt.Printf("{\"error\":\"%s\"},", err)
 			}
 		} else {
-			if emu.Verbosity >= 0 {
-				// show registers
-				if emu.Verbosity == 2 {
-					fmt.Println("---")
-					fmt.Println(emu.CPU.ReadRegisters())
+			if emu.Verbosity == 2 {
+				fmt.Println("---")
+				fmt.Println(emu.CPU.ReadRegisters())
 
-					if emu.UcMode == uc.MODE_32 {
-						emu.CPU.PrintStack(10)
-					} else {
-					}
-					fmt.Println(instruction.HookString())
-					fmt.Println(instruction)
-				} else if emu.Verbosity == 1 {
-					if s := instruction.HookString(); s != "" {
-						fmt.Println(s)
-					}
-					fmt.Println(instruction)
+				if emu.UcMode == uc.MODE_32 {
+					emu.CPU.PrintStack(10)
 				} else {
-					if instruction.Hook.Implemented == true {
-						fmt.Println(instruction.HookString())
-					}
+				}
+				fmt.Println(instruction.HookString())
+				fmt.Println(instruction)
+			} else if emu.Verbosity == 1 {
+				if s := instruction.HookString(); s != "" {
+					fmt.Println(s)
+				}
+				fmt.Println(instruction)
+			} else {
+				if instruction.Hook.Implemented == true {
+					fmt.Println(instruction.HookString())
 				}
 			}
 		}
