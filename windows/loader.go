@@ -245,6 +245,8 @@ func (emu *WinEmulator) updateImageBase(pe *pefile.PeFile) {
 	}
 }
 
+// extractExports populates mapping strucs in WinEmulator for resolving
+// DLLName -> (FuncName -> Addr & Addr -> FuncName)
 func (emu *WinEmulator) extractExports(pe *pefile.PeFile) {
 	name := pe.Name
 	for _, funcs := range pe.Exports {
