@@ -92,46 +92,48 @@ configured properly, you should be able to execute all the PE files within the
 `tests/` directory.
 
 ```
-root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# ./binee tests/ConsoleApplication1_x86.exe
-0x20735900: GetSystemTimeAsFileTime(lpSystemTimeAsFileTime = 0xb000ffe0) = 0xb000ffe0
-0x2072a310: GetCurrentThreadId() = 0x0
-0x20734100: GetCurrentProcessId() = 0x2001
-0x207340e0: QueryPerformanceCounter(lpPerformanceCount = 0xb000ffd8) = 0x1
-0x20738860: IsProcessorFeaturePresent(ProcessorFeature = 0xa) = 0x1
-0x212ae760: _initterm_e(PVFV = 0x4020d8, PVFV = 0x4020e4) = 0x0
-0x212a7260: _initterm(PVPV = 0x4020cc, PVPV = 0x4020d4) = 0x0
-0x212fd880: __p___argv() = 0x40338c
-0x212fd870: __p___argc() = 0x21352104
-0x21330940: _get_initial_narrow_environment() = 0x21352108
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'GENERIC_READ = 0x%llx\n') = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'GENERIC_WRITE = 0x%llx\n') = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'INVALID_HANDLE = 0x%llx\n') = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'CREATE_ALWAYS = 0x%x\n') = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'FILE_ATTRIBUTE_NORMAL = 0x%x\n') = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'ERROR_SUCCESS = 0x%x\n') = 0x403380
-0x2073e500: CreateFileA(lpFileName = 'malfile.exe', dwDesiredAccess = 0xc0000000, dwShareMode = 0x0, lpSecurityAttributes = 0x0, dwCreationDisposition = 0x2, dwFlagsAndAttributes = 0x80, hTemplateFile = 0x0) = 0xa0001578
-0x207920d3: VerSetConditionMask() = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n') = 0x403380
-0x207920d3: VerSetConditionMask() = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n') = 0x403380
-0x207920d3: VerSetConditionMask() = 0x403380
-0x212ad780: __acrt_iob_func() = 0x403380
-0x2130f510: __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n') = 0x403380
-0x216b5730: memset(dest = 0xb000ff1c, char = 0x0, count = 0x58) = 0xb000ff1c
-0x2073e920: WriteFile(hFile = 0xa0001578, lpBuffer = 0xb000ff10, nNumberOfBytesToWrite = 0xb, lpNumberOfBytesWritten = 0xb000ff0c, lpOverlapped = 0x0) = 0xb
-0x20738860: IsProcessorFeaturePresent(ProcessorFeature = 0x17) = 0x1
-0x2073ab20: SetUnhandledExceptionFilter(lpTopLevelExceptionFilter = 0x0) = 0x4
-0x2075c770: UnhandledExceptionFilter(ExceptionInfo = 0x402100) = 0x1
-0x207361b0: GetCurrentProcess() = 0x1
-0x2073bd30: TerminateProcess(hProcess = 0xffffffff, uExitCode = 0xc0000409) = 0xffffffff
+root@6a6fe8c2b2a7:~/go/src/github.com/carbonblack/binee# go build && ./binee tests/ConsoleApplication1_x86.exe 
+[1] 0x2190c0b0: F GetSystemTimeAsFileTime(lpSystemTimeAsFileTime = 0xb7feffe0) = 0xb7feffe0
+[1] 0x21905b40: P GetCurrentThreadId() = 0x0
+[1] 0x219138d0: P GetCurrentProcessId() = 0x2001
+[1] 0x2011ef30: P GetCurrentProcessId() = 0x2001
+[1] 0x21905b50: F QueryPerformanceCounter(lpPerformanceCount = 0xb7feffd8) = 0x1
+[1] 0x2190c500: F IsProcessorFeaturePresent(ProcessorFeature = 0xa) = 0x1
+[1] 0x213af570: F _initterm_e(PVFV = 0x4020d8, PVFV = 0x4020e4) = 0x0
+[1] 0x213af970: F _initterm(PVPV = 0x4020cc, PVPV = 0x4020d4) = 0x0
+[1] 0x213be980: F __p___argv() = 0x7ffe0004
+[1] 0x213b96f0: F __p___argc() = 0x7ffe0000
+[1] 0x213bec50: F _get_initial_narrow_environment() = 0x7ffe0000
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x5dda9c68
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'GENERIC_READ = 0x%llx\n', p0 = 0x80000000) = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'GENERIC_WRITE = 0x%llx\n', p0 = 0x40000000) = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'INVALID_HANDLE = 0x%llx\n', p0 = 0xffffffff) = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x0
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'CREATE_ALWAYS = 0x%x\n', p0 = 0x2) = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'FILE_ATTRIBUTE_NORMAL = 0x%x\n', p0 = 0x80) = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'ERROR_SUCCESS = 0x%x\n', p0 = 0x0) = 0x403380
+[1] 0x21913b80: F CreateFileA(lpFileName = 'malfile.exe', dwDesiredAccess = 0xc0000000, dwShareMode = 0x0, lpSecurityAttributes = 0x0, dwCreationDisposition = 0x2, dwFlagsAndAttributes = 0x80, hTemplateFile = 0x0) = 0xa00007b6
+[1] 0x2196bfbe: F VerSetConditionMask() = 0xa00007b6
+[1] 0x213ac0a0: P __acrt_iob_func() = 0xa00007b6
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n', p0 = 0xa00007b6) = 0x403380
+[1] 0x2196bfbe: F VerSetConditionMask() = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n', p0 = 0x403380) = 0x403380
+[1] 0x2196bfbe: F VerSetConditionMask() = 0x403380
+[1] 0x213ac0a0: P __acrt_iob_func() = 0x403380
+[1] 0x213bb710: F __stdio_common_vfprintf(stream = 0x0, format = 'out = 0x%x\n', p0 = 0x403380) = 0x403380
+[1] 0x21bc0780: P memset(dest = 0xb7feff1c, char = 0x0, count = 0x58) = 0xb7feff1c
+[1] 0x21914000: F WriteFile(hFile = 0xa00007b6, lpBuffer = 0xb7feff10, nNumberOfBytesToWrite = 0xb, lpNumberOfBytesWritten = 0xb7feff0c, lpOverlapped = 0x0) = 0xb
+[1] 0x2190c500: F IsProcessorFeaturePresent(ProcessorFeature = 0x17) = 0x1
+[1] 0x2190fef0: F SetUnhandledExceptionFilter(lpTopLevelExceptionFilter = 0x0) = 0x4
+[1] 0x21927950: F UnhandledExceptionFilter(ExceptionInfo = 0x402100) = 0x1
+[1] 0x219138c0: P GetCurrentProcess() = 0x1
+[1] 0x20122cb0: P GetCurrentProcess() = 0x1
+[1] 0x21910690: F TerminateProcess(hProcess = 0xffffffff, uExitCode = 0xc0000409) = 0xffffffff
 ```
 
 
