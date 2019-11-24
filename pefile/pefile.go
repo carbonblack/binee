@@ -201,35 +201,37 @@ func entropy(bs []byte) float64 {
 	return -ret
 }
 
-func (self *PeFile) String() string {
-	return fmt.Sprintf("{ Path: %s }", self.Path)
+func (pe *PeFile) String() string {
+	return fmt.Sprintf("{ Path: %s }", pe.Path)
 }
 
-func (self *PeFile) SetImageBase(imageBase uint64) error {
-	if self.PeType == Pe32 {
-		self.oldImageBase = uint64(self.OptionalHeader.(*OptionalHeader32).ImageBase)
-		self.OptionalHeader.(*OptionalHeader32).ImageBase = uint32(imageBase)
+// SetImageBase updates the image base of a PeFile and also updates all
+// rolcations of the file
+func (pe *PeFile) SetImageBase(imageBase uint64) error {
+	if pe.PeType == Pe32 {
+		pe.oldImageBase = uint64(pe.OptionalHeader.(*OptionalHeader32).ImageBase)
+		pe.OptionalHeader.(*OptionalHeader32).ImageBase = uint32(imageBase)
 	} else {
-		self.oldImageBase = self.OptionalHeader.(*OptionalHeader32P).ImageBase
-		self.OptionalHeader.(*OptionalHeader32P).ImageBase = imageBase
+		pe.oldImageBase = pe.OptionalHeader.(*OptionalHeader32P).ImageBase
+		pe.OptionalHeader.(*OptionalHeader32P).ImageBase = imageBase
 	}
 
-	return self.updateRelocations()
+	return pe.updateRelocations()
 }
 
-func (self *PeFile) ImageBase() uint64 {
-	if self.PeType == Pe32 {
-		return uint64(self.OptionalHeader.(*OptionalHeader32).ImageBase)
+func (pe *PeFile) ImageBase() uint64 {
+	if pe.PeType == Pe32 {
+		return uint64(pe.OptionalHeader.(*OptionalHeader32).ImageBase)
 	} else {
-		return self.OptionalHeader.(*OptionalHeader32P).ImageBase
+		return pe.OptionalHeader.(*OptionalHeader32P).ImageBase
 	}
 }
 
-func (self *PeFile) EntryPoint() uint32 {
-	if self.PeType == Pe32 {
-		return self.OptionalHeader.(*OptionalHeader32).AddressOfEntryPoint
+func (pe *PeFile) EntryPoint() uint32 {
+	if pe.PeType == Pe32 {
+		return pe.OptionalHeader.(*OptionalHeader32).AddressOfEntryPoint
 	} else {
-		return self.OptionalHeader.(*OptionalHeader32P).AddressOfEntryPoint
+		return pe.OptionalHeader.(*OptionalHeader32P).AddressOfEntryPoint
 	}
 }
 
