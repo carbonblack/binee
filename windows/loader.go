@@ -342,7 +342,6 @@ func (emu *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
 		}
 		addr = Flink
 	}
-	return 0
 }
 
 //link LdrEntry to end of doubly linked list
@@ -396,9 +395,9 @@ func retrieveDllFromDisk(cur map[string]*pefile.PeFile, apiset *pefile.PeFile, s
 			fmt.Fprintf(os.Stderr, "error loading dll %s; unable to locate \"apisetschema.dll\"\n", name)
 			return
 		}
-		apiset_len := len(apiset.Apisets[name[0:len(name)-6]]) - 1
-		if apiset_len >= 0 {
-			realDll = apiset.Apisets[name[0:len(name)-6]][apiset_len]
+		apisetLen := len(apiset.Apisets[name[0:len(name)-6]]) - 1
+		if apisetLen >= 0 {
+			realDll = apiset.Apisets[name[0:len(name)-6]][apisetLen]
 		} else {
 			return
 		}
@@ -918,6 +917,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		util.PushStack(emu.Uc, emu.UcMode, pe.ImageBase())
 		util.PushStack(emu.Uc, emu.UcMode, pe.ImageBase())
 	}
+
 	// give libs back to GC, no longer needed
 	return nil
 }
