@@ -68,16 +68,23 @@ At this point you should be able to execute binee within the Docker container
 and see the usage menu.
 
 ```
-root@2b0fee41629f:~/go/src/github.com/carbonblack/binee# ./binee -v
-usage ./binee [-aAhvveis] [FILE] [ARGS]
-  -a <apiset dll name>     Returns the real dll name given an apiset dll
-  -A                       List all apisets and their mappings
-  -c FILE                  Path to a configuration file
-  -e FILE                  List file exports
-  -h                       Show this usage menu
-  -i FILE                  List file imports
-  -j                       Output as JSON
-  -v[v]                    Verbosity level, two v's for more verbose
+root@6a6fe8c2b2a7:~/go/src/github.com/carbonblack/binee# ./binee -h
+Usage of ./binee:
+  -A    list all apisets and their mappings
+  -a string
+        get the real dll name from an apiset name
+  -c string
+        path to configuration file
+  -d    show the dll prfix on all function calls
+  -e    dump pe file's exports table
+  -i    dump a pe file's imports table
+  -j    output data as json
+  -l    call DLLMain while loading DLLs
+  -r string
+        root path of mock file system, defaults to ./os/win10_32 (default "os/win10_32/")
+  -v    verbose level 1
+  -vv
+        verbose level 2
 ```
 
 If you are running on Microsoft Windows and/or you have your mock file system

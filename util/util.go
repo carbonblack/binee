@@ -49,8 +49,8 @@ func CreateSelector(index, flags uint32) uint64 {
 	return uint64(ret)
 }
 
-// AsciiToWinWchar will convert an ascii string to a windows sized wchar (2 byte width)
-func AsciiToWinWChar(s string) []byte {
+// ASCIIToWinWChar will convert an ascii string to a windows sized wchar (2 byte width)
+func ASCIIToWinWChar(s string) []byte {
 	ret := make([]byte, 0, 0)
 	for _, c := range s {
 		ret = append(ret, byte(c))

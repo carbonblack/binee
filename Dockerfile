@@ -17,14 +17,8 @@ RUN \
   ./make.sh install
   
 RUN \
-  git clone https://github.com/aquynh/capstone && \
-  cd capstone && \
-  CAPSTONE_ARCHS="x86" ./make.sh && \
-  ./make.sh install 
-
-RUN \
-  wget https://dl.google.com/go/go1.11.1.linux-amd64.tar.gz && \
-  tar -C /usr/local -xzf go1.11.1.linux-amd64.tar.gz && \
+  wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz && \
+  tar -C /usr/local -xzf go1.13.4.linux-amd64.tar.gz && \
   mkdir -p /bineedev/go/src/github.com/carbonblack/binee
 
 ENV HOME /bineedev
@@ -34,8 +28,7 @@ ENV PATH "/usr/local/go/bin:${PATH}"
 ENV GOPATH "${HOME}/go"
 
 RUN \
-  go get -u github.com/unicorn-engine/unicorn/bindings/go/unicorn && \
-  go get -u github.com/kgwinnup/gapstone
+  go get -u github.com/unicorn-engine/unicorn/bindings/go/unicorn
 
 ENV TERM=xterm
 

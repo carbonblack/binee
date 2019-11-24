@@ -55,7 +55,7 @@ func WinregHooks(emu *WinEmulator) {
 			in.Hook.Values[0] = hkeyMap(in.Args[0])
 			in.Hook.Parameters[0] = "s:hKey"
 			hkey := hkeyMap(in.Args[0])
-			subkey := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			subkey := util.ReadASCII(emu.Uc, in.Args[1], 0)
 			return createRegKey(emu, in, hkey, subkey)(emu, in)
 		},
 	})
@@ -66,7 +66,7 @@ func WinregHooks(emu *WinEmulator) {
 			in.Hook.Values[0] = hkeyMap(in.Args[0])
 			in.Hook.Parameters[0] = "s:hKey"
 			hkey := hkeyMap(in.Args[0])
-			subkey := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			subkey := util.ReadASCII(emu.Uc, in.Args[1], 0)
 			return createRegKey(emu, in, hkey, subkey)(emu, in)
 		},
 	})
@@ -129,7 +129,7 @@ func WinregHooks(emu *WinEmulator) {
 
 			// get hkey
 			hkey := hkeyMap(in.Args[0])
-			name := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
 			return openRegKey(emu, in, hkey, name, in.Args[2])(emu, in)
 		},
 	})
@@ -157,7 +157,7 @@ func WinregHooks(emu *WinEmulator) {
 
 			// get hkey
 			hkey := hkeyMap(in.Args[0])
-			name := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
 			return openRegKey(emu, in, hkey, name, in.Args[4])(emu, in)
 		},
 	})
@@ -180,7 +180,7 @@ func WinregHooks(emu *WinEmulator) {
 		Parameters: []string{"key", "a:lpValueName", "lpReserved", "lpType", "lpData", "lpcbData"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			key := emu.Handles[in.Args[0]]
-			name := util.ReadAscii(emu.Uc, in.Args[1], 0)
+			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
 
 			if value, err := emu.Registry.Get(key.RegKey.Hkey, key.RegKey.Name+"\\"+name); err != nil {
 				return SkipFunctionStdCall(true, 0x1)(emu, in)
@@ -225,8 +225,8 @@ func WinregHooks(emu *WinEmulator) {
 			in.Hook.Values[0] = hkeyMap(in.Args[0])
 			in.Hook.Parameters[0] = "s:hKey"
 			hkey := hkeyMap(in.Args[0])
-			subKey := util.ReadAscii(emu.Uc, in.Args[1], 0)
-			value := util.ReadAscii(emu.Uc, in.Args[3], 0)
+			subKey := util.ReadASCII(emu.Uc, in.Args[1], 0)
+			value := util.ReadASCII(emu.Uc, in.Args[3], 0)
 			reg := &Reg{hkey + "\\" + subKey, value, make(map[string]*Reg)}
 			if err := emu.Registry.Insert(hkey, subKey, reg); err != nil {
 				return SkipFunctionStdCall(true, 0x57)(emu, in)

@@ -1,13 +1,17 @@
 package windows
 
-import "fmt"
-import "os"
-import "bytes"
-import "strings"
-import "encoding/binary"
-import "github.com/carbonblack/binee/pefile"
-import "github.com/carbonblack/binee/util"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/carbonblack/binee/pefile"
+	"github.com/carbonblack/binee/util"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 const (
 	F_GRANULARITY  = 0x8
@@ -96,9 +100,9 @@ type ProcessEnvironmentBlock32 struct {
 	SystemReserved                     [1]uint32
 	ExecuteOptionsSpareBits            uint32
 	FreeList                           uint32
-	TlsExpansionCounter                uint32
-	TlsBitmap                          uint32
-	TlsBitmapBits                      [2]uint32
+	TLSExpansionCounter                uint32
+	TLSBitmap                          uint32
+	TLSBitmapBits                      [2]uint32
 	ReadOnlySharedMemoryBase           uint32
 	ReadOnlySharedMemoryHeap           uint32
 	ReadOnlyStaticServerData           uint32
@@ -123,16 +127,16 @@ type ProcessEnvironmentBlock32 struct {
 	OsMinorVersion                     int32
 	OsBuildNumber                      uint16
 	OsCSDVersion                       uint16
-	OSPlatformId                       uint32
+	OSPlatformID                       uint32
 	ImageSubsystem                     uint32
 	ImageSubsystemMajorVersion         uint32
 	ImageSubsystemMinorVersion         uint32
 	ImageProcessAffinityMask           uint32
 	GdiHandleBuffer                    [34]uint32
 	PostProcessInitRoutine             uint32
-	TlsExpansionBitmap                 uint32
-	TlsExpansionBitmapBits             [32]uint32
-	SessionId                          uint32
+	TLSExpansionBitmap                 uint32
+	TLSExpansionBitmapBits             [32]uint32
+	SessionID                          uint32
 	AppCompatFlags                     uint64
 	AppCompatFlagsUser                 uint64
 	ShimData                           uint32
@@ -162,7 +166,7 @@ type ProcessEnvironmentBlock32 struct {
 	CloudFileFlags                     uint32
 }
 
-type ClientId struct {
+type ClientID struct {
 	ProcessHandle uint32
 	ThreadHandle  uint32
 }
@@ -220,14 +224,14 @@ type UserProcessParameters32 struct {
 	CommandLine       uint32
 }
 
-func (self *WinEmulator) UpdateImageBase(pe *pefile.PeFile) {
+func (emu *WinEmulator) updateImageBase(pe *pefile.PeFile) {
 
-	if pe.SetImageBase(self.NextLibAddress) != nil {
+	if pe.SetImageBase(emu.NextLibAddress) != nil {
 		fmt.Fprintf(os.Stderr, "error setting image base and/or updating relocations")
 	}
 
 	// populate internal mapping of realdll name to base address
-	self.LoadedModules[pe.Name] = self.NextLibAddress
+	emu.LoadedModules[pe.Name] = emu.NextLibAddress
 
 	// calculate total dll size in memory
 	dllSize := 0
@@ -237,47 +241,49 @@ func (self *WinEmulator) UpdateImageBase(pe *pefile.PeFile) {
 
 	// set address for next DLL
 	for i := 0; i <= dllSize; i += 4096 {
-		self.NextLibAddress += 4096
+		emu.NextLibAddress += 4096
 	}
 }
 
-func (self *WinEmulator) extractExports(pe *pefile.PeFile) {
+// extractExports populates mapping strucs in WinEmulator for resolving
+// DLLName -> (FuncName -> Addr & Addr -> FuncName)
+func (emu *WinEmulator) extractExports(pe *pefile.PeFile) {
 	name := pe.Name
 	for _, funcs := range pe.Exports {
 		realAddr := uint64(funcs.Rva) + pe.ImageBase()
-		if _, ok := self.libFunctionAddress[name]; !ok {
-			self.libFunctionAddress[name] = make(map[string]uint64)
+		if _, ok := emu.libFunctionAddress[name]; !ok {
+			emu.libFunctionAddress[name] = make(map[string]uint64)
 		}
-		if _, ok := self.libAddressFunction[name]; !ok {
-			self.libAddressFunction[name] = make(map[uint64]string)
+		if _, ok := emu.libAddressFunction[name]; !ok {
+			emu.libAddressFunction[name] = make(map[uint64]string)
 		}
-		self.libFunctionAddress[name][funcs.Name] = realAddr
-		self.libAddressFunction[name][realAddr] = funcs.Name
+		emu.libFunctionAddress[name][funcs.Name] = realAddr
+		emu.libAddressFunction[name][realAddr] = funcs.Name
 	}
 }
 
-func (self *WinEmulator) getLdrPointer(baseaddr, offset, length uint64, adjust64 bool) uint64 {
-	loc := baseaddr + (offset * (self.PtrSize / 4))
-	if self.PtrSize == 8 && adjust64 {
+func (emu *WinEmulator) getLdrPointer(baseaddr, offset, length uint64, adjust64 bool) uint64 {
+	loc := baseaddr + (offset * (emu.PtrSize / 4))
+	if emu.PtrSize == 8 && adjust64 {
 		loc = (loc * 2) - 8
 	}
-	mem, _ := self.Uc.MemRead(loc, length)
-	if self.PtrSize == 4 {
+	mem, _ := emu.Uc.MemRead(loc, length)
+	if emu.PtrSize == 4 {
 		mem = append(mem, []byte{0, 0, 0, 0}...)
 	}
 	ptr := binary.LittleEndian.Uint64(mem)
 	return ptr
 }
 
-func (self *WinEmulator) initializeListHead(address uint64) {
-	buf := make([]byte, self.PtrSize)
-	if self.PtrSize == 4 {
+func (emu *WinEmulator) initializeListHead(address uint64) {
+	buf := make([]byte, emu.PtrSize)
+	if emu.PtrSize == 4 {
 		binary.LittleEndian.PutUint32(buf, uint32(address))
 	} else {
 		binary.LittleEndian.PutUint64(buf, address)
 	}
-	self.Uc.MemWrite(address, buf)
-	self.Uc.MemWrite(address+self.PtrSize, buf)
+	emu.Uc.MemWrite(address, buf)
+	emu.Uc.MemWrite(address+emu.PtrSize, buf)
 }
 
 //build an LdrEntry and then write it to the emulator memory
@@ -287,7 +293,7 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrEntry.BaseDllName = UnicodeString32{}
 		LdrEntry.FullDllName = UnicodeString32{}
 
-		wRealDll := util.AsciiToWinWChar(lpe.RealName)
+		wRealDll := util.ASCIIToWinWChar(lpe.RealName)
 		nameBuf := bytes.NewBuffer(wRealDll)
 		nameLength := len(wRealDll)
 		nameAddr := emu.Heap.Malloc(uint64(nameLength))
@@ -299,7 +305,16 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrEntry.FullDllName.Length = uint16(nameLength)
 		LdrEntry.FullDllName.MaximumLength = uint16(nameLength)
 		LdrEntry.EntryPoint = uint32(lpe.EntryPoint())
-		LdrEntry.DllBase = uint32(lpe.OptionalHeader.(*pefile.OptionalHeader32).ImageBase)
+		var imageBase uint32
+		switch optHdr := lpe.OptionalHeader.(type) {
+		case *pefile.OptionalHeader32:
+			imageBase = uint32(optHdr.ImageBase)
+		case *pefile.OptionalHeader32P:
+			imageBase = uint32(optHdr.ImageBase)
+		default:
+			panic(fmt.Errorf("support for %T not yet implemented", lpe.OptionalHeader))
+		}
+		LdrEntry.DllBase = imageBase
 		LdrEntry.SizeOfImage = uint32(lpe.ImageSize)
 		LdrEntry.TlsIndex = uint16(index)
 
@@ -311,12 +326,12 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 	return 0
 }
 
-func (self *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
+func (emu *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
 	addr := listHead
 	var Flink uint64
 	//var Blink uint64
 	for {
-		Flink = self.getLdrPointer(addr, 0, self.PtrSize, true)
+		Flink = emu.getLdrPointer(addr, 0, emu.PtrSize, true)
 		//Blink = self.getLdrPointer(addr+(4*(self.PtrSize/4)), 0, self.PtrSize, true)
 		if Flink == listHead {
 			if addr == listHead {
@@ -327,7 +342,6 @@ func (self *WinEmulator) findEndOfListEntry(listHead uint64) uint64 {
 		}
 		addr = Flink
 	}
-	return 0
 }
 
 //link LdrEntry to end of doubly linked list
@@ -377,9 +391,13 @@ func retrieveDllFromDisk(cur map[string]*pefile.PeFile, apiset *pefile.PeFile, s
 	// get realDll name on disk
 	// for apiset recurse through each real dll in the apisets list
 	if strings.Compare(name[:4], "api-") == 0 {
-		apiset_len := len(apiset.Apisets[name[0:len(name)-6]]) - 1
-		if apiset_len >= 0 {
-			realDll = apiset.Apisets[name[0:len(name)-6]][apiset_len]
+		if apiset == nil {
+			fmt.Fprintf(os.Stderr, "error loading dll %s; unable to locate \"apisetschema.dll\"\n", name)
+			return
+		}
+		apisetLen := len(apiset.Apisets[name[0:len(name)-6]]) - 1
+		if apisetLen >= 0 {
+			realDll = apiset.Apisets[name[0:len(name)-6]][apisetLen]
 		} else {
 			return
 		}
@@ -590,11 +608,11 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 		// tls buffer
 
 		// client id
-		clientId := ClientId{0x41414141, 0x42424242}
-		clientIdBuf := new(bytes.Buffer)
-		binary.Write(clientIdBuf, binary.LittleEndian, &clientId)
-		clientIdAddress := emu.Heap.Malloc(uint64(binary.Size(&clientId)))
-		emu.Uc.MemWrite(clientIdAddress, clientIdBuf.Bytes())
+		clientID := ClientID{0x41414141, 0x42424242}
+		clientIDBuf := new(bytes.Buffer)
+		binary.Write(clientIDBuf, binary.LittleEndian, &clientID)
+		clientIDAddress := emu.Heap.Malloc(uint64(binary.Size(&clientID)))
+		emu.Uc.MemWrite(clientIDAddress, clientIDBuf.Bytes())
 
 		// PEB
 		pebAddress := emu.initPEB(pe)
@@ -651,7 +669,7 @@ func (emu *WinEmulator) initMemory() error {
 }
 
 func (emu *WinEmulator) initRegisters() error {
-	if emu.UcMode == uc.MODE_32 {
+	if emu.PtrSize == 4 {
 
 		if err := emu.Uc.RegWrite(uc.X86_REG_EDI, emu.EntryPoint); err != nil {
 			return err
@@ -705,8 +723,8 @@ func (emu *WinEmulator) initRegisters() error {
 	return nil
 }
 
-//Add dll to ropchain for calling DllMain
-func (emu *WinEmulator) SetupDllMainCallstack(dll *pefile.PeFile) {
+// setupDllMainCallstack Add dll to ropchain for calling DllMain
+func (emu *WinEmulator) setupDllMainCallstack(dll *pefile.PeFile) {
 	//TODO: make this 64-bit aware, this implementation is only 32 bit currently.
 	if emu.PtrSize == 4 {
 		hmodule := dll.ImageBase()
@@ -730,6 +748,12 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 	// open each DLL and load into map, adjust base address with NextLibAddress
 	emu.EntryPoint = pe.ImageBase() + uint64(pe.EntryPoint())
 
+	if mode == uc.MODE_32 {
+		emu.MemRegions.ImageAddress = pe.ImageBase()
+	} else {
+		emu.MemRegions.ImageAddress = pe.ImageBase()
+	}
+
 	if emu.Uc, err = uc.NewUnicorn(emu.UcArch, emu.UcMode); err != nil {
 		return err
 	}
@@ -750,18 +774,13 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		return err
 	}
 
-	if mode == uc.MODE_32 {
-		emu.MemRegions.ImageAddress = pe.ImageBase()
-	} else {
-		emu.MemRegions.ImageAddress = pe.ImageBase()
-	}
-
 	// load Apisetschema dll for mapping to real dlls
 	apisetPath, err := util.SearchFile(emu.SearchPath, "apisetschema.dll")
-	if err != nil {
-		return err
+	var apiset *pefile.PeFile
+	if err == nil {
+		// only load apisetschema.dll if present.
+		apiset, _ = pefile.LoadPeFile(apisetPath)
 	}
-	apiset, _ := pefile.LoadPeFile(apisetPath)
 
 	// create the main map to hold all name/realdll mappings to actual PeFile object
 	peMap := make(map[string]*pefile.PeFile)
@@ -782,7 +801,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			continue
 		}
 
-		emu.UpdateImageBase(lpe)
+		emu.updateImageBase(lpe)
 		// add PeFile to "already checked" mapping
 		peCheck[lpe.RealName] = true
 	}
@@ -881,7 +900,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			dll := peMap[name]
 			if !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
 				if dll.EntryPoint() != 0 {
-					emu.SetupDllMainCallstack(dll)
+					emu.setupDllMainCallstack(dll)
 				}
 			}
 		}
@@ -898,6 +917,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		util.PushStack(emu.Uc, emu.UcMode, pe.ImageBase())
 		util.PushStack(emu.Uc, emu.UcMode, pe.ImageBase())
 	}
+
 	// give libs back to GC, no longer needed
 	return nil
 }

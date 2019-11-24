@@ -1,18 +1,22 @@
 package windows
 
-import "gopkg.in/yaml.v2"
-import "os"
-import "io/ioutil"
-import "time"
-import "github.com/carbonblack/binee/pefile"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"io/ioutil"
+	"os"
+	"time"
+	"sort"
 
-//import "regexp"
-import cs "github.com/kgwinnup/gapstone"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
-import "sort"
-import core "github.com/carbonblack/binee/core"
+	"gopkg.in/yaml.v2"
 
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+
+	"github.com/carbonblack/binee/core"
+	"github.com/carbonblack/binee/pefile"
+)
+
+// Env is the key/value pair for specifying environment variables for the
+// emulated process
 type Env struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
@@ -60,12 +64,11 @@ type WinEmulator struct {
 	UcArch             int
 	PtrSize            uint64
 	Uc                 uc.Unicorn
-	Cs                 cs.Engine
 	Timestamp          int64
 	Ticks              uint64
 	Binary             string
 	Verbosity          int
-	AsJson             bool
+	AsJSON             bool
 	ShowDll            bool
 	Args               []string
 	Argc               uint64
@@ -83,7 +86,7 @@ type WinEmulator struct {
 	LoadedModules      map[string]uint64
 	Heap               *core.HeapManager
 	Registry           *Registry
-	Cpu                *core.CpuManager
+	CPU                *core.CpuManager
 	Scheduler          *ScheduleManager
 	Fls                [64]uint64
 	Opts               WinOptions
@@ -93,17 +96,19 @@ type WinEmulator struct {
 	AutoContinue bool
 }
 
-func (self *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
-	self.nameToHook[fname] = hook
+// AddHook makes a new function hook available to the emulated process
+func (emu *WinEmulator) AddHook(lib string, fname string, hook *Hook) {
+	emu.nameToHook[fname] = hook
 }
 
-func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
+// GetHook will get a hook from the list of available hooks, returning the dll,
+// function name and hook object
+func (emu *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	// check if the current address is in some mapped library
-	if lib := self.LookupLibByAddress(addr); lib != "" {
+	if lib := emu.lookupLibByAddress(addr); lib != "" {
 		//check if named function has a hook defined
-		if function := self.libAddressFunction[lib][addr]; function != "" {
-			//if hook := emu.ResolveNameToHook(name, function); hook != nil {
-			if hook := self.nameToHook[function]; hook != nil {
+		if function := emu.libAddressFunction[lib][addr]; function != "" {
+			if hook := emu.nameToHook[function]; hook != nil {
 				return lib, function, hook
 			}
 			return lib, function, nil
@@ -113,15 +118,54 @@ func (self *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	return "", "", nil
 }
 
-func New(path string, arch, mode int, args []string, verbose int, config string, showDll bool, calldllmain bool) (WinEmulator, error) {
+// WinEmulatorOptions will get passed into the WinEmulator
+type WinEmulatorOptions struct {
+	RootFolder   string
+	RunDLLMain   bool
+	ConfigPath   string
+	VerboseLevel int
+	ShowDLL      bool
+	AsJSON       bool
+}
+
+// InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
+func InitWinEmulatorOptions() *WinEmulatorOptions {
+	return &WinEmulatorOptions{
+		RootFolder:   "os/win10_32/",
+		RunDLLMain:   false,
+		ConfigPath:   "",
+		VerboseLevel: 0,
+		ShowDLL:      false,
+		AsJSON:       false,
+	}
+}
+
+// Load is the entry point for loading a PE file in the emulated environment
+func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+	if options == nil {
+		options = InitWinEmulatorOptions()
+	}
+
 	var err error
-	emu := WinEmulator{}
-	emu.UcMode = mode
-	emu.UcArch = arch
+
+	//load the PE
+	pe, err := pefile.LoadPeFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	emu := &WinEmulator{}
+	emu.UcArch = uc.ARCH_X86
+	if pe.PeType == pefile.Pe32 {
+		emu.UcMode = uc.MODE_32
+	} else {
+		emu.UcMode = uc.MODE_64
+	}
 	emu.Timestamp = time.Now().Unix()
 	emu.Ticks = 1
 	emu.Binary = path
-	emu.Verbosity = verbose
+	emu.AsJSON = options.AsJSON
+	emu.Verbosity = options.VerboseLevel
 	emu.Args = args
 	emu.Argc = uint64(len(args))
 	emu.nameToHook = make(map[string]*Hook)
@@ -131,7 +175,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.libRealLib = make(map[string]string)
 	emu.Handles = make(map[uint64]*Handle)
 	//this is the first thread
-	emu.ShowDll = showDll
+	emu.ShowDll = options.ShowDLL
 	emu.MemRegions = &MemRegions{}
 	// define each memory section's size
 	emu.MemRegions.ProcInfoSize = uint64(4 * 1024 * 1024)
@@ -143,13 +187,8 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.MemRegions.ImageSize = uint64(32 * 1024 * 1024)
 	emu.Seed = 1
 
-	if mode == uc.MODE_32 {
+	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
-
-		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_32); err != nil {
-			return emu, err
-		}
-
 		emu.MemRegions.GdtAddress = 0xc0000000
 		emu.MemRegions.StackAddress = 0xb0000000
 		emu.MemRegions.HeapAddress = 0xa0000000
@@ -160,11 +199,6 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 
 	} else {
 		emu.PtrSize = 8
-
-		if emu.Cs, err = cs.New(cs.CS_ARCH_X86, cs.CS_MODE_64); err != nil {
-			return emu, err
-		}
-
 		emu.MemRegions.ProcInfoAddress = 0x7ffdf000
 		emu.MemRegions.GdtAddress = 0xc0000000
 		emu.MemRegions.StackAddress = 0xfee792a000
@@ -202,7 +236,7 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Opts.SystemTime.Minute = time.Now().Minute()
 	emu.Opts.SystemTime.Second = time.Now().Second()
 	emu.Opts.SystemTime.Millisecond = 14
-	emu.Opts.Root = "os/win10_32/"
+	emu.Opts.Root = options.RootFolder
 	emu.Opts.Env = make([]Env, 20)
 	emu.Opts.Env = append(emu.Opts.Env, Env{"ALLUSERSPROFILE", "C:\\ProgramData"})
 	emu.Opts.Env = append(emu.Opts.Env, Env{"APPDATA", "C:\\Users\\" + emu.Opts.User + "\\AppData\\roaming"})
@@ -264,27 +298,25 @@ func New(path string, arch, mode int, args []string, verbose int, config string,
 	emu.Opts.TempRegistry["HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\PowerShell\\1\\Install"] = "dword:00000001"
 	emu.Opts.TempRegistry["HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\PowerShell\\1\\PID"] = "89383-100-0001260-04309"
 
-	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
-
 	var buf []byte
-	if buf, err = ioutil.ReadFile(config); err == nil {
+	if buf, err = ioutil.ReadFile(options.ConfigPath); err == nil {
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
 
+	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
+
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
-		return emu, err
-	} else {
-		emu.Registry = mockRegistry
-		emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
+		return nil, err
 	}
 
-	//load the PE
-	pe, _ := pefile.LoadPeFile(emu.Binary)
-	err = emu.initPe(pe, path, arch, mode, args, calldllmain)
+	emu.Registry = mockRegistry
+	emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
 
-	emu.Cpu = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
-	emu.Scheduler = NewScheduleManager(&emu)
+	err = emu.initPe(pe, path, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
+
+	emu.CPU = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
+	emu.Scheduler = NewScheduleManager(emu)
 
 	return emu, err
 }
@@ -315,9 +347,9 @@ func CreateModuleList(keyvalue map[string]uint64) ModuleList {
 	return ml
 }
 
-// Function looks up a dll given a memory address. Scans each dll's image base
-// and returns the dll name where the address lives
-func (emu *WinEmulator) LookupLibByAddress(addr uint64) string {
+// lookupLibByAddress Function looks up a dll given a memory address. Scans each
+// dll's image base and returns the dll name where the address lives
+func (emu *WinEmulator) lookupLibByAddress(addr uint64) string {
 	sml := CreateModuleList(emu.LoadedModules)
 	sml.Sort()
 	for i, tuple := range sml {
@@ -336,15 +368,16 @@ func (emu *WinEmulator) LookupLibByAddress(addr uint64) string {
 	return ""
 }
 
-// helper function for SetLastError hook in kernel32, winbase
-func (emu *WinEmulator) SetLastError(e uint64) error {
+// setLastError will set the error in the proper structure within the emulated
+// memory space
+func (emu *WinEmulator) setLastError(er uint64) error {
 	bs := make([]byte, emu.PtrSize)
 	offset := uint64(0x34)
 	if emu.PtrSize == 8 {
 		offset = uint64(0x68)
-		binary.LittleEndian.PutUint64(bs, e)
+		binary.LittleEndian.PutUint64(bs, er)
 	} else {
-		binary.LittleEndian.PutUint32(bs, uint32(e))
+		binary.LittleEndian.PutUint32(bs, uint32(er))
 	}
 	err := emu.Uc.MemWrite(emu.MemRegions.TibAddress+offset, bs)
 	return err

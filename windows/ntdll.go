@@ -1,10 +1,14 @@
 package windows
 
-import "fmt"
-import "io/ioutil"
-import "encoding/binary"
-import "github.com/carbonblack/binee/util"
-import uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+import (
+	"encoding/binary"
+	"fmt"
+	"io/ioutil"
+
+	"github.com/carbonblack/binee/util"
+
+	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+)
 
 func allocateVirtualMemory(emu *WinEmulator, in *Instruction) bool {
 	// Get the pointers

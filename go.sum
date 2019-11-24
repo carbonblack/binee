@@ -1,9 +1,13 @@
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e h1:fY5BOSpyZCqRo5OhCuC+XN+r/bBCmeuuJtjz+bCNIf8=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
-github.com/kgwinnup/gapstone v0.0.0-20190307034051-9f3ea2fb077c h1:nTRM+zLMZTTWfQd/lTL7RJGJYjI+s4O0x5lsHtdaUXs=
-github.com/kgwinnup/gapstone v0.0.0-20190307034051-9f3ea2fb077c/go.mod h1:9NN44osf4zQS55nuQvbchUaE5D1WX03Cf9PzU2/XOl4=
 github.com/unicorn-engine/unicorn v0.0.0-20191025210239-3b17db0d84a2 h1:zKa6xZVMPu9+l1pRM38PA1cijzy77qYyvq23c1Qcn+4=
 github.com/unicorn-engine/unicorn v0.0.0-20191025210239-3b17db0d84a2/go.mod h1:vm0xtY46O4X0t1J6Ob+syPhvL38XAAidXGXmTSlcMZM=
+golang.org/x/arch v0.0.0-20191101135251-a0d8588395bd h1:e1iK2rWppIPlzzqtjXT/p6WR/+ritGZ8xkfL8uDZb0g=
+golang.org/x/arch v0.0.0-20191101135251-a0d8588395bd/go.mod h1:flIaEI6LNU6xOCD5PaJvn9wGP0agmIOqjrtsKGRguv4=
+golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e h1:N7DeIrjYszNmSW409R3frPPwglRwMkXSBzwVbkOjLLA=
+golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.5 h1:ymVxjfMaHvXD8RqPRmzHHsB3VvucivSkIAvJFDI5O3c=
 gopkg.in/yaml.v2 v2.2.5/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=

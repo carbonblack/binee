@@ -1,8 +1,11 @@
 package windows
 
-import "fmt"
-import "github.com/carbonblack/binee/core"
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+
+	"github.com/carbonblack/binee/core"
+)
 
 type Thread struct {
 	ThreadId  int
@@ -20,7 +23,7 @@ type ScheduleManager struct {
 
 func NewScheduleManager(emu *WinEmulator) *ScheduleManager {
 	threads := make([]*Thread, 0, 1)
-	firstThread := &Thread{1, emu.Cpu.PopContext(), 0}
+	firstThread := &Thread{1, emu.CPU.PopContext(), 0}
 	threads = append(threads, firstThread)
 	handleAddr := emu.Heap.Malloc(emu.PtrSize)
 	handle := Handle{}
@@ -47,7 +50,7 @@ func (self *ScheduleManager) DoSchedule() {
 
 	//save current context
 	curThread := self.curThread
-	curThread.registers = self.emu.Cpu.PopContext()
+	curThread.registers = self.emu.CPU.PopContext()
 
 	//round robin scheduler
 	// find next thread with status running
@@ -68,14 +71,14 @@ func (self *ScheduleManager) DoSchedule() {
 
 	//update cpu
 	self.curThread = nextThread
-	self.emu.Cpu.PushContext(nextThread.registers)
+	self.emu.CPU.PushContext(nextThread.registers)
 }
 
 func (self *ScheduleManager) ThreadEnded(threadId int) uint64 {
 	self.DelThread(threadId)
 	nextThread := self.threads[0]
 	self.curThread = nextThread
-	self.emu.Cpu.PushContext(nextThread.registers)
+	self.emu.CPU.PushContext(nextThread.registers)
 	if self.emu.PtrSize == 4 {
 		return uint64(nextThread.registers.(*core.Registers32).Eip)
 	} else {
@@ -92,7 +95,7 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 
 	// init new thread
 	self.threadsAtomic += 1
-	newThread := Thread{self.threadsAtomic, self.emu.Cpu.PopContext(), int(status)}
+	newThread := Thread{self.threadsAtomic, self.emu.CPU.PopContext(), int(status)}
 
 	if self.emu.PtrSize == 4 {
 		// offset by one due to parameter to thread

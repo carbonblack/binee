@@ -1,7 +1,10 @@
 package util
 
-import "gopkg.in/yaml.v2"
-import "io/ioutil"
+import (
+	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
+)
 
 type GenericConfig struct {
 	Root string `yaml:"root"`

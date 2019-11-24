@@ -1,7 +1,10 @@
 package windows
 
-import "encoding/binary"
-import "github.com/carbonblack/binee/util"
+import (
+	"encoding/binary"
+
+	"github.com/carbonblack/binee/util"
+)
 
 type ServiceTableEntry struct {
 	ServiceName string
@@ -17,7 +20,7 @@ func startServiceCtrlDispatcher(emu *WinEmulator, addr uint64, wide bool) Servic
 	if wide == true {
 		name = util.ReadWideChar(emu.Uc, nameAddr, 0)
 	} else {
-		name = util.ReadAscii(emu.Uc, nameAddr, 0)
+		name = util.ReadASCII(emu.Uc, nameAddr, 0)
 	}
 
 	procAddrBytes, _ := emu.Uc.MemRead(addr+emu.PtrSize, emu.PtrSize)
