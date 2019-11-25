@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/arch/x86/x86asm"
 	"os"
-	"runtime"
 	"strings"
+
+	"golang.org/x/arch/x86/x86asm"
 
 	"github.com/carbonblack/binee/util"
 
@@ -83,21 +83,6 @@ func (emu *WinEmulator) Start() error {
 	return nil
 }
 
-func (emu *WinEmulator) StartSingleStep() error {
-
-	// load the single step cli mode hook
-	emu.Uc.HookAdd(uc.HOOK_CODE, HookCodeStep(emu), 1, 0)
-	emu.Uc.HookAdd(uc.HOOK_MEM_READ_INVALID|uc.HOOK_MEM_WRITE_INVALID|uc.HOOK_MEM_FETCH_INVALID, HookInvalid(emu), 1, 0)
-
-	emu.LoadHooks()
-
-	if err := emu.Uc.Start(emu.EntryPoint, 0x0); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 	return func(mu uc.Unicorn, addr uint64, size uint32) {
 		emu.Ticks++
@@ -156,22 +141,6 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 			emu.Scheduler.DoSchedule()
 		}
 	}
-}
-
-func TempDir() string {
-	if runtime.GOOS == "windows" {
-		tmp := os.Getenv("TEMP")
-		if tmp == "" {
-			tmp = os.Getenv("TMP")
-		}
-
-		if tmp == "" {
-			tmp = "."
-		}
-
-		return tmp
-	}
-	return "/tmp"
 }
 
 func HookInvalid(emu *WinEmulator) func(mu uc.Unicorn, access int, addr uint64, size int, value int64) bool {
