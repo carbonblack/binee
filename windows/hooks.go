@@ -141,6 +141,11 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		if emu.Ticks%10 == 0 {
 			emu.Scheduler.DoSchedule()
 		}
+
+		// check that the emulation only emulates n ticks. If 0, continue
+		if emu.maxTicks > 0 && emu.Ticks > emu.maxTicks {
+			mu.Stop()
+		}
 	}
 }
 

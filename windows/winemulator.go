@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"os"
-	"time"
 	"sort"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
@@ -66,6 +66,7 @@ type WinEmulator struct {
 	Uc                 uc.Unicorn
 	Timestamp          int64
 	Ticks              uint64
+	maxTicks           uint64
 	Binary             string
 	Verbosity          int
 	AsJSON             bool
@@ -126,6 +127,7 @@ type WinEmulatorOptions struct {
 	VerboseLevel int
 	ShowDLL      bool
 	AsJSON       bool
+	MaxTicks     int64
 }
 
 // InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
@@ -137,6 +139,7 @@ func InitWinEmulatorOptions() *WinEmulatorOptions {
 		VerboseLevel: 0,
 		ShowDLL:      false,
 		AsJSON:       false,
+		MaxTicks:     0,
 	}
 }
 
@@ -163,6 +166,7 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	}
 	emu.Timestamp = time.Now().Unix()
 	emu.Ticks = 1
+	emu.maxTicks = uint64(options.MaxTicks)
 	emu.Binary = path
 	emu.AsJSON = options.AsJSON
 	emu.Verbosity = options.VerboseLevel

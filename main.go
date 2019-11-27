@@ -25,6 +25,7 @@ func main() {
 	verbose1 := flag.Bool("v", false, "verbose level 1")
 	runDLLMain := flag.Bool("l", false, "call DLLMain while loading DLLs")
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
+	maxTicks := flag.Int64("t", 0, "maximum number of instructions to emulate before stopping emulation, default is 0 and will run forever or until other stopping event")
 
 	flag.Parse()
 
@@ -119,6 +120,7 @@ func main() {
 	options.ShowDLL = *showDLL
 	options.RunDLLMain = *runDLLMain
 	options.AsJSON = *outputJSON
+	options.MaxTicks = *maxTicks
 
 	// now start the emulator with the various options
 	emu, err := windows.Load(flag.Arg(0), flag.Args()[1:], options)
