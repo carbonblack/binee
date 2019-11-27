@@ -67,9 +67,10 @@ type WinEmulator struct {
 	Timestamp          int64
 	Ticks              uint64
 	maxTicks           uint64
+	logType            int
+	InstructionLog     []*InstructionLog
 	Binary             string
 	Verbosity          int
-	AsJSON             bool
 	ShowDll            bool
 	Args               []string
 	Argc               uint64
@@ -119,6 +120,14 @@ func (emu *WinEmulator) GetHook(addr uint64) (string, string, *Hook) {
 	return "", "", nil
 }
 
+// defines the basic log types available in winemulator, avaialble to be set via
+// command line flags
+const (
+	LogTypeStdout = iota
+	LogTypeJSON
+	LogTypeSlice
+)
+
 // WinEmulatorOptions will get passed into the WinEmulator
 type WinEmulatorOptions struct {
 	RootFolder   string
@@ -126,8 +135,8 @@ type WinEmulatorOptions struct {
 	ConfigPath   string
 	VerboseLevel int
 	ShowDLL      bool
-	AsJSON       bool
 	MaxTicks     int64
+	LogType      int
 }
 
 // InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
@@ -138,8 +147,8 @@ func InitWinEmulatorOptions() *WinEmulatorOptions {
 		ConfigPath:   "",
 		VerboseLevel: 0,
 		ShowDLL:      false,
-		AsJSON:       false,
 		MaxTicks:     0,
+		LogType:      LogTypeStdout,
 	}
 }
 
@@ -157,6 +166,12 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 		return nil, err
 	}
 
+	return load(pe, path, args, options)
+}
+
+func load(pe *pefile.PeFile, path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+	var err error
+
 	emu := &WinEmulator{}
 	emu.UcArch = uc.ARCH_X86
 	if pe.PeType == pefile.Pe32 {
@@ -167,8 +182,12 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	emu.Timestamp = time.Now().Unix()
 	emu.Ticks = 1
 	emu.maxTicks = uint64(options.MaxTicks)
+	emu.logType = options.LogType
+	// log instructions only if the flag is set
+	if emu.logType == LogTypeSlice {
+		emu.InstructionLog = make([]*InstructionLog, 0)
+	}
 	emu.Binary = path
-	emu.AsJSON = options.AsJSON
 	emu.Verbosity = options.VerboseLevel
 	emu.Args = args
 	emu.Argc = uint64(len(args))

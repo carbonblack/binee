@@ -101,13 +101,17 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 		instruction.Hook.Return = returns
 
-		if emu.AsJSON == true {
+		if emu.logType == LogTypeJSON {
 			if buf, err := json.Marshal(instruction); err == nil {
 				if instruction.Hook.Implemented == true {
 					fmt.Println(string(buf))
 				}
 			} else {
 				fmt.Printf("{\"error\":\"%s\"},", err)
+			}
+		} else if emu.logType == LogTypeSlice {
+			if instruction.Hook.Implemented {
+				emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
 			}
 		} else {
 			if emu.Verbosity == 2 {
@@ -130,6 +134,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 					fmt.Println(instruction.StringHook())
 				}
 			}
+
 		}
 
 		if emu.Scheduler.CurThreadId() == 1 {
@@ -206,7 +211,36 @@ type Instruction struct {
 	Stack    []byte
 	Hook     *Hook
 	emu      *WinEmulator
-	ThreadId int
+	ThreadID int
+}
+
+// InstructionLog is the exported struct detailing a single instruction. Useful
+// for programmatic access to the emulated output
+type InstructionLog struct {
+	Tid        int           `json:"tid"`
+	Addr       uint64        `json:"addr"`
+	Size       uint32        `json:"size"`
+	Opcode     string        `json:"opcode"`
+	Lib        string        `json:"lib,omitempty"`
+	Fn         string        `json:"fn,omitempty"`
+	Parameters []string      `json:"parameters,omitempty"`
+	Values     []interface{} `json:"values,omitempty"`
+	Return     uint64        `json:"return,omitempty"`
+}
+
+// Log will output a anonymous struct that represents the instruction JSON form
+func (i *Instruction) Log() *InstructionLog {
+	return &InstructionLog{
+		Tid:        i.ThreadID,
+		Addr:       i.Addr,
+		Size:       i.Size,
+		Opcode:     i.Disassemble(),
+		Lib:        i.Hook.Lib,
+		Fn:         i.Hook.Name,
+		Parameters: i.Hook.Parameters,
+		Values:     i.Hook.Values,
+		Return:     i.Hook.Return,
+	}
 }
 
 func (i *Instruction) MarshalJSON() ([]byte, error) {
@@ -221,7 +255,7 @@ func (i *Instruction) MarshalJSON() ([]byte, error) {
 		Values     []interface{} `json:"values,omitempty"`
 		Return     uint64        `json:"return,omitempty"`
 	}{
-		Tid:        i.ThreadId,
+		Tid:        i.ThreadID,
 		Addr:       i.Addr,
 		Size:       i.Size,
 		Opcode:     i.Disassemble(),
@@ -281,7 +315,7 @@ func (self *Instruction) ParseValues() {
 // StringInstruction will print the instructino disassembly of the current EIP
 // position
 func (i *Instruction) String() string {
-	return fmt.Sprintf("[%d] %s: %s", i.ThreadId, i.Address(), i.Disassemble())
+	return fmt.Sprintf("[%d] %s: %s", i.ThreadID, i.Address(), i.Disassemble())
 }
 
 // StringHook will print the hook string value if a hook is implemented,
@@ -292,7 +326,7 @@ func (i *Instruction) StringHook() string {
 	}
 
 	ret := ""
-	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadId, i.Address(), i.Hook.HookStatus, i.Hook.Name)
+	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadID, i.Address(), i.Hook.HookStatus, i.Hook.Name)
 	for j := range i.Args {
 
 		if len(i.Hook.Parameters[j]) < 2 {
