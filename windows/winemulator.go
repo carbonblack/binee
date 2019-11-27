@@ -166,10 +166,11 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 		return nil, err
 	}
 
-	return load(pe, path, args, options)
+	return LoadMem(pe, path, args, options)
 }
 
-func load(pe *pefile.PeFile, path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+// LoadMem will load a pefile from an already initiated object
+func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
 	var err error
 
 	emu := &WinEmulator{}
