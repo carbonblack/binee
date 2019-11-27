@@ -170,9 +170,9 @@ type PeFile struct {
 	Sections         []*Section
 	sectionHeaders   []*SectionHeader
 	Imports          []*ImportInfo
-	Exports          []Export
-	ExportNameMap    map[string]Export
-	ExportOrdinalMap map[int]Export
+	Exports          []*Export
+	ExportNameMap    map[string]*Export
+	ExportOrdinalMap map[int]*Export
 	Apisets          map[string][]string
 	Size             int64
 	RawHeaders       []byte
@@ -478,8 +478,8 @@ func (pe *PeFile) readExports() error {
 	ordinals := exportDirectory.OrdinalsRva - section.VirtualAddress
 	var ordinal uint16
 
-	pe.ExportNameMap = make(map[string]Export)
-	pe.ExportOrdinalMap = make(map[int]Export)
+	pe.ExportNameMap = make(map[string]*Export)
+	pe.ExportOrdinalMap = make(map[int]*Export)
 
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
 		// seek to names table
@@ -510,7 +510,7 @@ func (pe *PeFile) readExports() error {
 
 		rva := exportOrdinalTable.ExportRva
 
-		export := Export{name, ordinal, rva}
+		export := &Export{name, ordinal, rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
 		pe.ExportOrdinalMap[int(ordinal)] = export
