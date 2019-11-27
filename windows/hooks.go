@@ -204,28 +204,6 @@ type Hook struct {
 	Lib         string
 }
 
-// Copy method for Hooks
-func (h *Hook) Copy() *Hook {
-	hook := &Hook{}
-
-	hook.Name = h.Name
-	hook.Parameters = make([]string, len(h.Parameters))
-	for _, p := range h.Parameters {
-		hook.Parameters = append(hook.Parameters, p)
-	}
-	hook.Fn = h.Fn
-	hook.Implemented = h.Implemented
-	hook.Values = make([]interface{}, len(h.Values))
-	for _, i := range h.Values {
-		hook.Values = append(hook.Values, i)
-	}
-	hook.Return = h.Return
-	hook.HookStatus = h.HookStatus
-	hook.Lib = h.Lib
-
-	return hook
-}
-
 type Instruction struct {
 	Addr     uint64
 	Size     uint32
@@ -236,38 +214,23 @@ type Instruction struct {
 	ThreadID int
 }
 
-// Copy for instruction
-func (i *Instruction) Copy() *Instruction {
-	in := &Instruction{}
-
-	in.Addr = i.Addr
-	in.Size = i.Size
-	in.Args = make([]uint64, len(i.Args))
-	for _, a := range i.Args {
-		in.Args = append(in.Args, a)
-	}
-	//not going to copy this for now
-	in.Stack = make([]byte, 0)
-	in.Hook = i.Hook.Copy()
-	in.emu = nil
-	in.ThreadID = i.ThreadID
-
-	return in
+// InstructionLog is the exported struct detailing a single instruction. Useful
+// for programmatic access to the emulated output
+type InstructionLog struct {
+	Tid        int           `json:"tid"`
+	Addr       uint64        `json:"addr"`
+	Size       uint32        `json:"size"`
+	Opcode     string        `json:"opcode"`
+	Lib        string        `json:"lib,omitempty"`
+	Fn         string        `json:"fn,omitempty"`
+	Parameters []string      `json:"parameters,omitempty"`
+	Values     []interface{} `json:"values,omitempty"`
+	Return     uint64        `json:"return,omitempty"`
 }
 
 // Log will output a anonymous struct that represents the instruction JSON form
-func (i *Instruction) Log() interface{} {
-	return &struct {
-		Tid        int           `json:"tid"`
-		Addr       uint64        `json:"addr"`
-		Size       uint32        `json:"size"`
-		Opcode     string        `json:"opcode"`
-		Lib        string        `json:"lib,omitempty"`
-		Fn         string        `json:"fn,omitempty"`
-		Parameters []string      `json:"parameters,omitempty"`
-		Values     []interface{} `json:"values,omitempty"`
-		Return     uint64        `json:"return,omitempty"`
-	}{
+func (i *Instruction) Log() *InstructionLog {
+	return &InstructionLog{
 		Tid:        i.ThreadID,
 		Addr:       i.Addr,
 		Size:       i.Size,

@@ -68,7 +68,7 @@ type WinEmulator struct {
 	Ticks              uint64
 	maxTicks           uint64
 	logType            int
-	InstructionLog     []interface{}
+	InstructionLog     []*InstructionLog
 	Binary             string
 	Verbosity          int
 	ShowDll            bool
@@ -179,7 +179,7 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	emu.logType = options.LogType
 	// log instructions only if the flag is set
 	if emu.logType == LogTypeSlice {
-		emu.InstructionLog = make([]interface{}, 0)
+		emu.InstructionLog = make([]*InstructionLog, 0)
 	}
 	emu.Binary = path
 	emu.Verbosity = options.VerboseLevel
