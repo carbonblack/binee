@@ -21,9 +21,10 @@ func main() {
 	listExports := flag.Bool("e", false, "dump pe file's exports table")
 	listImports := flag.Bool("i", false, "dump a pe file's imports table")
 	outputJSON := flag.Bool("j", false, "output data as json")
+	instructionLog := flag.Bool("l", false, "log instructions to a []*Instruction slice, typically this is for programmatic emulation")
 	verbose2 := flag.Bool("vv", false, "verbose level 2")
 	verbose1 := flag.Bool("v", false, "verbose level 1")
-	runDLLMain := flag.Bool("l", false, "call DLLMain while loading DLLs")
+	runDLLMain := flag.Bool("m", false, "call DLLMain while loading DLLs")
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
 	maxTicks := flag.Int64("t", 0, "maximum number of instructions to emulate before stopping emulation, default is 0 and will run forever or until other stopping event")
 
@@ -119,7 +120,13 @@ func main() {
 	options.RootFolder = *rootFolder
 	options.ShowDLL = *showDLL
 	options.RunDLLMain = *runDLLMain
-	options.AsJSON = *outputJSON
+	if *outputJSON {
+		options.LogType = windows.LogTypeJSON
+	} else if *instructionLog {
+		options.LogType = windows.LogTypeSlice
+	} else {
+		options.LogType = windows.LogTypeStdout
+	}
 	options.MaxTicks = *maxTicks
 
 	// now start the emulator with the various options

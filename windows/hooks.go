@@ -101,13 +101,17 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 		instruction.Hook.Return = returns
 
-		if emu.AsJSON == true {
+		if emu.logType == LogTypeJSON {
 			if buf, err := json.Marshal(instruction); err == nil {
 				if instruction.Hook.Implemented == true {
 					fmt.Println(string(buf))
 				}
 			} else {
 				fmt.Printf("{\"error\":\"%s\"},", err)
+			}
+		} else if emu.logType == LogTypeSlice {
+			if instruction.Hook.Implemented {
+				emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
 			}
 		} else {
 			if emu.Verbosity == 2 {
@@ -130,6 +134,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 					fmt.Println(instruction.StringHook())
 				}
 			}
+
 		}
 
 		if emu.Scheduler.CurThreadId() == 1 {
@@ -199,6 +204,28 @@ type Hook struct {
 	Lib         string
 }
 
+// Copy method for Hooks
+func (h *Hook) Copy() *Hook {
+	hook := &Hook{}
+
+	hook.Name = h.Name
+	hook.Parameters = make([]string, len(h.Parameters))
+	for _, p := range h.Parameters {
+		hook.Parameters = append(hook.Parameters, p)
+	}
+	hook.Fn = h.Fn
+	hook.Implemented = h.Implemented
+	hook.Values = make([]interface{}, len(h.Values))
+	for _, i := range h.Values {
+		hook.Values = append(hook.Values, i)
+	}
+	hook.Return = h.Return
+	hook.HookStatus = h.HookStatus
+	hook.Lib = h.Lib
+
+	return hook
+}
+
 type Instruction struct {
 	Addr     uint64
 	Size     uint32
@@ -206,7 +233,51 @@ type Instruction struct {
 	Stack    []byte
 	Hook     *Hook
 	emu      *WinEmulator
-	ThreadId int
+	ThreadID int
+}
+
+// Copy for instruction
+func (i *Instruction) Copy() *Instruction {
+	in := &Instruction{}
+
+	in.Addr = i.Addr
+	in.Size = i.Size
+	in.Args = make([]uint64, len(i.Args))
+	for _, a := range i.Args {
+		in.Args = append(in.Args, a)
+	}
+	//not going to copy this for now
+	in.Stack = make([]byte, 0)
+	in.Hook = i.Hook.Copy()
+	in.emu = nil
+	in.ThreadID = i.ThreadID
+
+	return in
+}
+
+// Log will output a anonymous struct that represents the instruction JSON form
+func (i *Instruction) Log() interface{} {
+	return &struct {
+		Tid        int           `json:"tid"`
+		Addr       uint64        `json:"addr"`
+		Size       uint32        `json:"size"`
+		Opcode     string        `json:"opcode"`
+		Lib        string        `json:"lib,omitempty"`
+		Fn         string        `json:"fn,omitempty"`
+		Parameters []string      `json:"parameters,omitempty"`
+		Values     []interface{} `json:"values,omitempty"`
+		Return     uint64        `json:"return,omitempty"`
+	}{
+		Tid:        i.ThreadID,
+		Addr:       i.Addr,
+		Size:       i.Size,
+		Opcode:     i.Disassemble(),
+		Lib:        i.Hook.Lib,
+		Fn:         i.Hook.Name,
+		Parameters: i.Hook.Parameters,
+		Values:     i.Hook.Values,
+		Return:     i.Hook.Return,
+	}
 }
 
 func (i *Instruction) MarshalJSON() ([]byte, error) {
@@ -221,7 +292,7 @@ func (i *Instruction) MarshalJSON() ([]byte, error) {
 		Values     []interface{} `json:"values,omitempty"`
 		Return     uint64        `json:"return,omitempty"`
 	}{
-		Tid:        i.ThreadId,
+		Tid:        i.ThreadID,
 		Addr:       i.Addr,
 		Size:       i.Size,
 		Opcode:     i.Disassemble(),
@@ -281,7 +352,7 @@ func (self *Instruction) ParseValues() {
 // StringInstruction will print the instructino disassembly of the current EIP
 // position
 func (i *Instruction) String() string {
-	return fmt.Sprintf("[%d] %s: %s", i.ThreadId, i.Address(), i.Disassemble())
+	return fmt.Sprintf("[%d] %s: %s", i.ThreadID, i.Address(), i.Disassemble())
 }
 
 // StringHook will print the hook string value if a hook is implemented,
@@ -292,7 +363,7 @@ func (i *Instruction) StringHook() string {
 	}
 
 	ret := ""
-	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadId, i.Address(), i.Hook.HookStatus, i.Hook.Name)
+	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadID, i.Address(), i.Hook.HookStatus, i.Hook.Name)
 	for j := range i.Args {
 
 		if len(i.Hook.Parameters[j]) < 2 {
