@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/arch/x86/x86asm"
 	"os"
-	"runtime"
 	"strings"
+
+	"golang.org/x/arch/x86/x86asm"
 
 	"github.com/carbonblack/binee/util"
 
@@ -83,21 +83,6 @@ func (emu *WinEmulator) Start() error {
 	return nil
 }
 
-func (emu *WinEmulator) StartSingleStep() error {
-
-	// load the single step cli mode hook
-	emu.Uc.HookAdd(uc.HOOK_CODE, HookCodeStep(emu), 1, 0)
-	emu.Uc.HookAdd(uc.HOOK_MEM_READ_INVALID|uc.HOOK_MEM_WRITE_INVALID|uc.HOOK_MEM_FETCH_INVALID, HookInvalid(emu), 1, 0)
-
-	emu.LoadHooks()
-
-	if err := emu.Uc.Start(emu.EntryPoint, 0x0); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 	return func(mu uc.Unicorn, addr uint64, size uint32) {
 		emu.Ticks++
@@ -116,7 +101,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 		instruction.Hook.Return = returns
 
-		if emu.AsJSON == true {
+		if emu.logType == LogTypeJSON {
 			if buf, err := json.Marshal(instruction); err == nil {
 				if instruction.Hook.Implemented == true {
 					fmt.Println(string(buf))
@@ -124,26 +109,32 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 			} else {
 				fmt.Printf("{\"error\":\"%s\"},", err)
 			}
+		} else if emu.logType == LogTypeSlice {
+			if instruction.Hook.Implemented {
+				emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
+			}
 		} else {
-			if emu.Verbosity >= 0 {
-				// show registers
-				if emu.Verbosity == 2 {
-					fmt.Println("---")
-					fmt.Println(emu.CPU.ReadRegisters())
+			if emu.Verbosity == 2 {
+				fmt.Println("---")
+				fmt.Println(emu.CPU.ReadRegisters())
 
-					if emu.UcMode == uc.MODE_32 {
-						emu.CPU.PrintStack(10)
-					} else {
-					}
-					fmt.Println(instruction)
-				} else if emu.Verbosity == 1 {
-					fmt.Println(instruction)
+				if emu.UcMode == uc.MODE_32 {
+					emu.CPU.PrintStack(10)
 				} else {
-					if instruction.Hook.Implemented == true {
-						fmt.Println(instruction)
-					}
+				}
+				fmt.Println(instruction.StringHook())
+				fmt.Println(instruction)
+			} else if emu.Verbosity == 1 {
+				if s := instruction.StringHook(); s != "" {
+					fmt.Println(s)
+				}
+				fmt.Println(instruction)
+			} else {
+				if instruction.Hook.Implemented == true {
+					fmt.Println(instruction.StringHook())
 				}
 			}
+
 		}
 
 		if emu.Scheduler.CurThreadId() == 1 {
@@ -155,23 +146,12 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		if emu.Ticks%10 == 0 {
 			emu.Scheduler.DoSchedule()
 		}
-	}
-}
 
-func TempDir() string {
-	if runtime.GOOS == "windows" {
-		tmp := os.Getenv("TEMP")
-		if tmp == "" {
-			tmp = os.Getenv("TMP")
+		// check that the emulation only emulates n ticks. If 0, continue
+		if emu.maxTicks > 0 && emu.Ticks > emu.maxTicks {
+			mu.Stop()
 		}
-
-		if tmp == "" {
-			tmp = "."
-		}
-
-		return tmp
 	}
-	return "/tmp"
 }
 
 func HookInvalid(emu *WinEmulator) func(mu uc.Unicorn, access int, addr uint64, size int, value int64) bool {
@@ -231,7 +211,36 @@ type Instruction struct {
 	Stack    []byte
 	Hook     *Hook
 	emu      *WinEmulator
-	ThreadId int
+	ThreadID int
+}
+
+// InstructionLog is the exported struct detailing a single instruction. Useful
+// for programmatic access to the emulated output
+type InstructionLog struct {
+	Tid        int           `json:"tid"`
+	Addr       uint64        `json:"addr"`
+	Size       uint32        `json:"size"`
+	Opcode     string        `json:"opcode"`
+	Lib        string        `json:"lib,omitempty"`
+	Fn         string        `json:"fn,omitempty"`
+	Parameters []string      `json:"parameters,omitempty"`
+	Values     []interface{} `json:"values,omitempty"`
+	Return     uint64        `json:"return,omitempty"`
+}
+
+// Log will output a anonymous struct that represents the instruction JSON form
+func (i *Instruction) Log() *InstructionLog {
+	return &InstructionLog{
+		Tid:        i.ThreadID,
+		Addr:       i.Addr,
+		Size:       i.Size,
+		Opcode:     i.Disassemble(),
+		Lib:        i.Hook.Lib,
+		Fn:         i.Hook.Name,
+		Parameters: i.Hook.Parameters,
+		Values:     i.Hook.Values,
+		Return:     i.Hook.Return,
+	}
 }
 
 func (i *Instruction) MarshalJSON() ([]byte, error) {
@@ -246,7 +255,7 @@ func (i *Instruction) MarshalJSON() ([]byte, error) {
 		Values     []interface{} `json:"values,omitempty"`
 		Return     uint64        `json:"return,omitempty"`
 	}{
-		Tid:        i.ThreadId,
+		Tid:        i.ThreadID,
 		Addr:       i.Addr,
 		Size:       i.Size,
 		Opcode:     i.Disassemble(),
@@ -303,49 +312,52 @@ func (self *Instruction) ParseValues() {
 	}
 }
 
-func (self *Instruction) String() string {
-	if self.Hook.Implemented == false {
-		return fmt.Sprintf("[%d] %s: %s", self.ThreadId, self.Address(), self.Disassemble())
-	} else {
+// StringInstruction will print the instructino disassembly of the current EIP
+// position
+func (i *Instruction) String() string {
+	return fmt.Sprintf("[%d] %s: %s", i.ThreadID, i.Address(), i.Disassemble())
+}
 
-		ret := ""
-		ret += fmt.Sprintf("[%d] %s: %s %s(", self.ThreadId, self.Address(), self.Hook.HookStatus, self.Hook.Name)
-		for i := range self.Args {
-
-			if len(self.Hook.Parameters[i]) < 2 {
-				ret += fmt.Sprintf("%s = 0x%x", self.Hook.Parameters[i], self.Args[i])
-				continue
-			}
-
-			switch self.Hook.Parameters[i][0:2] {
-			case "_:":
-				continue
-			case "w:":
-				s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
-			case "a:":
-				s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], s)
-			case "v:":
-				ret += fmt.Sprintf("%s = %+v", self.Hook.Parameters[i][2:], self.Hook.Values[i])
-			case "s:":
-				ret += fmt.Sprintf("%s = '%s'", self.Hook.Parameters[i][2:], self.Hook.Values[i])
-			default:
-				ret += fmt.Sprintf("%s = 0x%x", self.Hook.Parameters[i], self.Args[i])
-			}
-
-			if i != len(self.Args)-1 {
-				ret += fmt.Sprintf(", ")
-			}
-		}
-		ret += fmt.Sprintf(") = 0x%x", self.Hook.Return)
-		if self.Hook.HookStatus != "F" {
-			// TODO kgwinnup lookup why you did this -> && self.Hook.HookStatus != "P" {
-			// print instruction at function entry point if not fully hooked.
-			ret += fmt.Sprintf("\n[%d] %s: %s", self.ThreadId, self.Address(), self.Disassemble())
-		}
-		return ret
+// StringHook will print the hook string value if a hook is implemented,
+// otherwise empty string
+func (i *Instruction) StringHook() string {
+	if i.Hook.Implemented == false {
+		return ""
 	}
+
+	ret := ""
+	ret += fmt.Sprintf("[%d] %s: %s %s(", i.ThreadID, i.Address(), i.Hook.HookStatus, i.Hook.Name)
+	for j := range i.Args {
+
+		if len(i.Hook.Parameters[j]) < 2 {
+			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+			continue
+		}
+
+		switch i.Hook.Parameters[j][0:2] {
+		case "_:":
+			continue
+		case "w:":
+			s := util.ReadWideChar(i.emu.Uc, i.Args[j], 0)
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+		case "a:":
+			s := util.ReadASCII(i.emu.Uc, i.Args[j], 0)
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+		case "v:":
+			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		case "s:":
+			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		default:
+			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+		}
+
+		if j != len(i.Args)-1 {
+			ret += fmt.Sprintf(", ")
+		}
+	}
+	ret += fmt.Sprintf(") = 0x%x", i.Hook.Return)
+
+	return ret
 }
 
 // VaArgsParse will take address to first value, number of values

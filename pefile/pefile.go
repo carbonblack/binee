@@ -2,6 +2,7 @@ package pefile
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -163,6 +164,7 @@ type PeFile struct {
 	Path             string
 	Name             string //import name, apiset or on disk
 	RealName         string //on disk short name
+	Sha256           string
 	DosHeader        *DosHeader
 	CoffHeader       *CoffHeader
 	OptionalHeader   interface{}
@@ -170,9 +172,9 @@ type PeFile struct {
 	Sections         []*Section
 	sectionHeaders   []*SectionHeader
 	Imports          []*ImportInfo
-	Exports          []Export
-	ExportNameMap    map[string]Export
-	ExportOrdinalMap map[int]Export
+	Exports          []*Export
+	ExportNameMap    map[string]*Export
+	ExportOrdinalMap map[int]*Export
 	Apisets          map[string][]string
 	Size             int64
 	RawHeaders       []byte
@@ -281,9 +283,18 @@ func LoadPeBytes(data []byte, name string) (*PeFile, error) {
 	return pe, nil
 }
 
+// Sha256Sum will calcuate the sha256 of the supplied byte slice
+func Sha256Sum(b []byte) (hexsum string) {
+	sum := sha256.Sum256(b)
+	hexsum = fmt.Sprintf("%x", sum)
+	return
+}
+
 // analyzePeFile is the core parser for PE files
 func analyzePeFile(data []byte, pe *PeFile) error {
 	var err error
+
+	pe.Sha256 = Sha256Sum(data)
 
 	//create reader at offset 0
 	r := bytes.NewReader(data)
@@ -479,8 +490,8 @@ func (pe *PeFile) readExports() error {
 	ordinals := exportDirectory.OrdinalsRva - section.VirtualAddress
 	var ordinal uint16
 
-	pe.ExportNameMap = make(map[string]Export)
-	pe.ExportOrdinalMap = make(map[int]Export)
+	pe.ExportNameMap = make(map[string]*Export)
+	pe.ExportOrdinalMap = make(map[int]*Export)
 
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
 		// seek to names table
@@ -511,7 +522,7 @@ func (pe *PeFile) readExports() error {
 
 		rva := exportOrdinalTable.ExportRva
 
-		export := Export{name, ordinal, rva}
+		export := &Export{name, ordinal, rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
 		pe.ExportOrdinalMap[int(ordinal)] = export
