@@ -325,17 +325,19 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 	var _magic uint16
 	if err := binary.Read(r, binary.LittleEndian, &_magic); err != nil {
 		return fmt.Errorf("Error reading in magic")
+	}
+
+	// check magic, must be a PE or PE+
+	if _magic == 0x10b {
+		pe.PeType = Pe32
+	} else if _magic == 0x20b {
+		pe.PeType = Pe32p
 	} else {
-		if _magic == 0x10b {
-			pe.PeType = Pe32
-		} else {
-			pe.PeType = Pe32p
-		}
+		return fmt.Errorf("invalid magic, must be PE or PE+")
+	}
 
-		if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
-			return fmt.Errorf("Error seeking to optionalHeader in file %s: %v", pe.Path, err)
-		}
-
+	if _, err = r.Seek(int64(pe.DosHeader.AddressExeHeader)+4+int64(binary.Size(CoffHeader{})), io.SeekStart); err != nil {
+		return fmt.Errorf("Error seeking to optionalHeader in file %s: %v", pe.Path, err)
 	}
 
 	// copy the optional headers into their respective structs
