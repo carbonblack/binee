@@ -519,7 +519,7 @@ func (pe *PeFile) readExports() error {
 
 		rva := exportOrdinalTable.ExportRva
 
-		export := &Export{name, ordinal, rva}
+		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase), rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
 		pe.ExportOrdinalMap[int(ordinal)] = export
