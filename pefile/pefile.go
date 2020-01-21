@@ -944,6 +944,9 @@ func (pe *PeFile) updateRelocations() error {
 	for {
 		block := RelocationBlock{}
 		if err := binary.Read(r, binary.LittleEndian, &block); err != nil {
+			if err == io.EOF { //In case the there was no padding.
+				break
+			}
 			log.Fatal(err)
 		}
 
