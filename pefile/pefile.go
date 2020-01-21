@@ -171,6 +171,7 @@ type PeFile struct {
 	PeType           PeType
 	Sections         []*Section
 	sectionHeaders   []*SectionHeader
+	HeadersAsSection *Section
 	Imports          []*ImportInfo
 	Exports          []*Export
 	ExportNameMap    map[string]*Export
@@ -408,6 +409,7 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 	}
 
 	pe.RawHeaders = data[0:pe.Sections[0].Offset]
+	pe.HeadersAsSection = &Section{"HeadersSection", uint32(len(pe.RawHeaders)), 0, uint32(len(pe.RawHeaders)), 0, 0, 0, 0, 0, 0, pe.RawHeaders, 0}
 	pe.readImports()
 	if err = pe.readExports(); err != nil {
 		return err
@@ -577,6 +579,10 @@ func (pe *PeFile) ImportedDlls() []string {
 
 func (pe *PeFile) getSectionByRva(rva uint32) *Section {
 	var section *Section
+	//In the normal pe structure, headers is not a section, but some malwares may hide in and include from this.
+	if rva > 0 && rva < pe.HeadersAsSection.VirtualSize {
+		return pe.HeadersAsSection
+	}
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
 		if rva >= pe.Sections[i].VirtualAddress && rva < pe.Sections[i].VirtualAddress+pe.Sections[i].Size {
 			section = pe.Sections[i]
