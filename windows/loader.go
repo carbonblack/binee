@@ -848,8 +848,10 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			continue
 		}
 
-		realAddr := uint64(dll.ExportNameMap[importInfo.FuncName].Rva) + dll.ImageBase()
-		pe.SetImportAddress(importInfo, realAddr)
+		if export, ok := dll.ExportNameMap[importInfo.FuncName]; ok {
+			realAddr := uint64(export.Rva) + dll.ImageBase()
+			pe.SetImportAddress(importInfo, realAddr)
+		}
 	}
 
 	// resolve imports between dlls, for each loaded dll
