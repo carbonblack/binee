@@ -383,7 +383,7 @@ func retrieveDllFromDisk(cur map[string]*pefile.PeFile, apiset *pefile.PeFile, s
 	var err error
 
 	// load dll from disk, add extension if missing
-	if name[len(name)-4:] != ".dll" {
+	if name[len(name)-4:] != ".dll" && name[len(name)-4:] != ".drv" {
 		name += ".dll"
 	}
 
@@ -392,7 +392,7 @@ func retrieveDllFromDisk(cur map[string]*pefile.PeFile, apiset *pefile.PeFile, s
 	// for apiset recurse through each real dll in the apisets list
 	if strings.Compare(name[:4], "api-") == 0 {
 		if apiset == nil {
-			fmt.Fprintf(os.Stderr, "error loading dll %s; unable to locate \"apisetschema.dll\"\n", name)
+			fmt.Fprintf(os.Stdout, "error loading dll %s; unable to locate \"apisetschema.dll\"\n", name)
 			return
 		}
 		apisetLen := len(apiset.Apisets[name[0:len(name)-6]]) - 1
@@ -848,8 +848,10 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 			continue
 		}
 
-		realAddr := uint64(dll.ExportNameMap[importInfo.FuncName].Rva) + dll.ImageBase()
-		pe.SetImportAddress(importInfo, realAddr)
+		if export, ok := dll.ExportNameMap[importInfo.FuncName]; ok {
+			realAddr := uint64(export.Rva) + dll.ImageBase()
+			pe.SetImportAddress(importInfo, realAddr)
+		}
 	}
 
 	// resolve imports between dlls, for each loaded dll

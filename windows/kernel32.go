@@ -120,7 +120,7 @@ func loadLibrary(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmul
 	name = strings.Trim(name, "\x00")
 	name = strings.Trim(name, "\u0000")
 
-	if strings.Contains(name, ".dll") == false {
+	if name[len(name)-4:] != ".dll" && name[len(name)-4:] != ".drv" {
 		name += ".dll"
 	}
 
