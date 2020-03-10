@@ -2,21 +2,24 @@ package util
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
-	"os"
 	"regexp"
 	"strings"
 )
 
-// SearchFile is the primary function for searching the host/mock system for
-// files for use in the emulator
+//SearchFile is the primary function for searching the host/mock system for
+//files for use in the emulator
 func SearchFile(searchPaths []string, filename string) (string, error) {
 	for i := 0; i < len(searchPaths); i++ {
-		if _, err := os.Stat(searchPaths[i] + "/" + strings.ToLower(filename)); err == nil {
-			return searchPaths[i] + "/" + strings.ToLower(filename), nil
+		files, err := ioutil.ReadDir(searchPaths[i])
+		if err != nil {
+			return "", fmt.Errorf("directory '%s'not found", searchPaths[i])
 		}
-		if _, err := os.Stat(searchPaths[i] + "/" + filename); err == nil {
-			return searchPaths[i] + "/" + filename, nil
+		for _, file := range files {
+			if strings.ToLower(file.Name()) == strings.ToLower(filename) {
+				return searchPaths[i] + "/" + file.Name(), nil
+			}
 		}
 	}
 
