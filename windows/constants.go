@@ -33,6 +33,17 @@ const (
 	STATUS_WAIT_3    = 0x3
 	STATUS_WAIT_63   = 0x3f
 	STATUS_ABANDONED = 0x80
+
+	//MEMORY
+	//https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc
+	MEM_COMMIT      = 0x00001000
+	MEM_RESERVE     = 0x00002000
+	MEM_RESET       = 0x00080000
+	MEM_RESET_UNDO  = 0x01000000
+	MEM_LARGE_PAGES = 0x20000000
+	MEM_PHYSICAL    = 0x00400000
+	MEM_TOP_DOWN    = 0x00100000
+	MEM_WRITE_WATCH = 0x00200000
 )
 
 var EN_LOCALE = map[int]string{
