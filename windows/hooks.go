@@ -157,10 +157,18 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 func HookInvalid(emu *WinEmulator) func(mu uc.Unicorn, access int, addr uint64, size int, value int64) bool {
 	return func(mu uc.Unicorn, access int, addr uint64, size int, value int64) bool {
 		switch access {
-		case uc.MEM_WRITE, uc.MEM_WRITE_UNMAPPED, uc.MEM_WRITE_PROT:
+		case uc.MEM_WRITE:
 			fmt.Fprintf(os.Stderr, "Invalid Write: address = 0x%x, size = 0x%x, value = 0x%x\n", addr, size, value)
-		case uc.MEM_READ, uc.MEM_READ_UNMAPPED, uc.MEM_READ_PROT:
-			fmt.Fprintf(os.Stderr, "Invalid Read: address = 0x%x, size = 0x%x, value = 0x%x\n", addr, size, value)
+		case uc.MEM_WRITE_UNMAPPED:
+			fmt.Fprintf(os.Stderr, "Invalid Write unmapped: address = 0x%x, size = 0x%x, value = 0x%x\n", addr, size, value)
+		case uc.MEM_WRITE_PROT:
+			fmt.Fprintf(os.Stderr, "Invalid Write protection: address = 0x%x, size = 0x%x, value = 0x%x\n", addr, size, value)
+		case uc.MEM_READ:
+			fmt.Fprintf(os.Stderr, "Invalid Read: address = 0x%x, size = 0x%x, value = 0x%x \n", addr, size, value)
+		case uc.MEM_READ_UNMAPPED:
+			fmt.Fprintf(os.Stderr, "Invalid Read unmapped: address = 0x%x, size = 0x%x, value = 0x%x \n", addr, size, value)
+		case uc.MEM_READ_PROT:
+			fmt.Fprintf(os.Stderr, "Invalid Read prot: address = 0x%x, size = 0x%x, value = 0x%x \n", addr, size, value)
 		case uc.MEM_FETCH, uc.MEM_FETCH_UNMAPPED, uc.MEM_FETCH_PROT:
 			fmt.Fprintf(os.Stderr, "Invalid Fetch: addresss = 0x%x, size = 0x%x, value = 0x%x\n", addr, size, value)
 		default:
@@ -279,7 +287,7 @@ func (self *Instruction) Disassemble() string {
 	buf, _ := self.emu.Uc.MemRead(self.Addr, uint64(self.Size))
 	mode := int(8 * self.emu.PtrSize)
 	if inst, err := x86asm.Decode(buf, mode); err == nil {
-		return strings.ToLower(inst.String())
+		return inst.String()
 	}
 	return ""
 }
@@ -560,6 +568,7 @@ func SkipFunctionCdecl(set_return bool, ret uint64) func(emu *WinEmulator, instr
 func SkipFunctionStdCall(set_return bool, ret uint64) func(emu *WinEmulator, instruction *Instruction) bool {
 	return func(emu *WinEmulator, instruction *Instruction) bool {
 
+		//
 		if set_return == true {
 			if emu.UcMode == uc.MODE_32 {
 				emu.Uc.RegWrite(uc.X86_REG_EAX, ret)
