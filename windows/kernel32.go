@@ -339,7 +339,11 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x1234)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetCurrentProcess", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetCurrentProcess", &Hook{Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 0x1234)(emu, in)
+		},
+	})
 	emu.AddHook("", "GetCurrentProcessId", &Hook{
 		Parameters: []string{},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -363,7 +367,11 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x2)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 0x0)(emu, in)
+		},
+	})
 	emu.AddHook("", "GetLastActivePopup", &Hook{
 		Parameters: []string{"hWnd"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -621,11 +629,11 @@ func KernelbaseHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "GetVersionExA", &Hook{
 		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
+		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "GetVersionExW", &Hook{
 		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
+		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "GetWindowsDirectoryA", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
