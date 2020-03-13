@@ -35,15 +35,21 @@ func GetModuleHandle(emu *WinEmulator, in *Instruction, wide bool) uint64 {
 	hinstance := uint64(0)
 	if in.Args[0] == 0x0 {
 		hinstance = emu.MemRegions.ImageAddress
+
 	} else {
-		var s string
+		var name string
 		if wide {
-			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
+			name = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
 		} else {
-			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
+			name = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
 		}
-		return emu.LoadedModules[s]
+		if name[len(name)-4:] != ".dll" && name[len(name)-4:] != ".drv" {
+			name += ".dll"
+		}
+
+		return emu.LoadedModules[name]
 	}
+
 	return hinstance
 }
 
@@ -52,13 +58,16 @@ func getModuleHandleEx(emu *WinEmulator, in *Instruction, wide bool) uint64 {
 	if in.Args[1] == 0x0 {
 		hinstance = emu.MemRegions.ImageAddress
 	} else {
-		var s string
+		var name string
 		if wide == true {
-			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
+			name = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[1], 0))
 		} else {
-			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[1], 0))
+			name = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[1], 0))
 		}
-		hinstance = emu.LoadedModules[s]
+		if name[len(name)-4:] != ".dll" && name[len(name)-4:] != ".drv" {
+			name += ".dll"
+		}
+		hinstance = emu.LoadedModules[name]
 		if hinstance == 0 {
 			return emu.MemRegions.ImageAddress
 		}
@@ -325,9 +334,18 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return getEnvironmentStrings(emu, in, true)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetCurrentThreadId", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetCurrentThreadId", &Hook{Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 0x1234)(emu, in)
+		},
+	})
 	emu.AddHook("", "GetCurrentProcess", &Hook{Parameters: []string{}})
-	emu.AddHook("", "GetCurrentProcessId", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetCurrentProcessId", &Hook{
+		Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 0x1234)(emu, in)
+		},
+	})
 	emu.AddHook("", "GetFileTime", &Hook{
 		Parameters: []string{"hFile", "lpCreationTime", "lpLastAccessTime", "lpLastWriteTime"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
