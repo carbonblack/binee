@@ -473,6 +473,40 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		binary.Write(LdrBuf, binary.LittleEndian, LdrEntry)
 		ldrEntryAddress := emu.Heap.Malloc(uint64(binary.Size(LdrEntry)))
 		return ldrEntryAddress
+	} else {
+		LdrEntry := PebLdrDataTableEntry64{}
+		LdrEntry.BaseDllName = UnicodeString64{}
+		LdrEntry.FullDllName = UnicodeString64{}
+
+		wRealDll := util.ASCIIToWinWChar(lpe.RealName)
+		nameBuf := bytes.NewBuffer(wRealDll)
+		nameLength := len(wRealDll)
+		nameAddr := emu.Heap.Malloc(uint64(nameLength))
+		emu.Uc.MemWrite(nameAddr, nameBuf.Bytes())
+		LdrEntry.BaseDllName.Buffer = uint64(nameAddr)
+		LdrEntry.BaseDllName.Length = uint16(nameLength)
+		LdrEntry.BaseDllName.MaximumLength = uint16(nameLength)
+		LdrEntry.FullDllName.Buffer = uint64(nameAddr)
+		LdrEntry.FullDllName.Length = uint16(nameLength)
+		LdrEntry.FullDllName.MaximumLength = uint16(nameLength)
+		LdrEntry.EntryPoint = uint64(lpe.EntryPoint())
+		var imageBase uint32
+		switch optHdr := lpe.OptionalHeader.(type) {
+		case *pefile.OptionalHeader32:
+			imageBase = uint32(optHdr.ImageBase)
+		case *pefile.OptionalHeader32P:
+			imageBase = uint32(optHdr.ImageBase)
+		default:
+			panic(fmt.Errorf("support for %T not yet implemented", lpe.OptionalHeader))
+		}
+		LdrEntry.DllBase = uint64(imageBase)
+		LdrEntry.SizeOfImage = uint64(lpe.ImageSize)
+		LdrEntry.TlsIndex = uint16(index)
+
+		LdrBuf := new(bytes.Buffer)
+		binary.Write(LdrBuf, binary.LittleEndian, LdrEntry)
+		ldrEntryAddress := emu.Heap.Malloc(uint64(binary.Size(LdrEntry)))
+		return ldrEntryAddress
 	}
 	return 0
 }
