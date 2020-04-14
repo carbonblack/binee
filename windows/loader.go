@@ -81,6 +81,30 @@ type ThreadInformationBlock32 struct {
 	TLSSlots                    [64]uint32
 }
 
+type ThreadInformationBlock64 struct {
+	CurentSEH                   uint64    //0x00
+	StackBaseHigh               uint64    //0x08
+	StackLimit                  uint64    //0x10
+	SubSystemTib                uint64    //0x18
+	FiberData                   uint64    //0x20
+	ArbitraryDataSlock          uint64    //0x28
+	LinearAddressOfTEB          uint64    //0x30
+	EnvPtr                      uint64    //0x38
+	ProcessId                   uint64    //0x40
+	CurrentThreadId             uint64    //0x48
+	ActiveRPCHandle             uint64    //0x50
+	AddressOfThreadLocalStorage uint64    //0x58
+	AddressOfPEB                uint64    //0x60
+	LastErrorNumber             uint32    //0x68
+	CountOwnedCriticalSections  uint32    //0x6c
+	AddressOfCSRClientThread    uint64    //0x70
+	Win32ThreadInformation      uint64    //0x78
+	padding1                    [136]byte //0x80-0x107
+	CurrentLocale               uint32    //0x108
+	padding                     [4984]byte
+	TLSSlots                    [64]uint64
+}
+
 type ProcessEnvironmentBlock32 struct {
 	InheritedAddressSpace              byte
 	ReadImageFileExecOptions           byte
@@ -166,6 +190,97 @@ type ProcessEnvironmentBlock32 struct {
 	CloudFileFlags                     uint32
 }
 
+type ProcessEnvironmentBlock64 struct {
+	InheritedAddressSpace              byte
+	ReadImageFileExecOptions           byte
+	BeingDebugged                      byte
+	SpareBool                          byte
+	padding0                           [4]byte
+	Mutant                             uint64
+	ImageBaseAddress                   uint64
+	Ldr                                uint64
+	ProcessParameters                  uint64
+	SubSystemData                      uint64
+	ProcessHeap                        uint64
+	FastPebLock                        uint64
+	FastPebLockRoutine                 uint64
+	FastPebUnlockRoutine               uint64
+	EnvironmentUpdateCount             uint32
+	padding1                           [4]byte
+	KernelCallbackTable                uint64
+	SystemReserved                     [1]uint32
+	ExecuteOptionsSpareBits            uint32
+	FreeList                           uint64
+	TLSExpansionCounter                uint32
+	padding2                           [4]byte
+	TLSBitmap                          uint64
+	TLSBitmapBits                      [2]uint32
+	ReadOnlySharedMemoryBase           uint64
+	ReadOnlySharedMemoryHeap           uint64
+	ReadOnlyStaticServerData           uint64
+	AnsiCodePageData                   uint64
+	OemCodePageData                    uint64
+	UnicodeCaseTableData               uint64
+	NumberOfProcessors                 uint32
+	NtlGlobalFlag                      uint32
+	CriticalSectionTimeout             uint64
+	HeapSegmentReserve                 uint64
+	HeapSegmentCommit                  uint64
+	HeapDeCommitTotalFreeThreshold     uint64
+	HeapDeCommitFreeBlockThreshold     uint64
+	NumberOfHeaps                      uint32
+	MaximumNumberOfHeaps               uint32
+	ProcessHeaps                       uint64
+	GdiSharedHandleTable               uint64
+	ProcessStarterHelper               uint64
+	GdiDCAttributeList                 uint32
+	padding3                           [4]byte
+	LoaderLock                         uint64
+	OsMajorVersion                     int32
+	OsMinorVersion                     int32
+	OsBuildNumber                      uint16
+	OsCSDVersion                       uint16
+	OSPlatformID                       uint32
+	ImageSubsystem                     uint32
+	ImageSubsystemMajorVersion         uint32
+	ImageSubsystemMinorVersion         uint32
+	padding4                           [4]byte
+	ImageProcessAffinityMask           uint32
+	GdiHandleBuffer                    [60]uint32
+	PostProcessInitRoutine             uint64
+	TLSExpansionBitmap                 uint64
+	TLSExpansionBitmapBits             [32]uint32
+	SessionID                          uint32
+	padding5                           [4]byte
+	AppCompatFlags                     uint64
+	AppCompatFlagsUser                 uint64
+	ShimData                           uint64
+	AppCompatInfo                      uint64
+	CSDVersion                         [16]byte
+	ActivationContextData              uint64
+	ProcessAssemblyStorageMap          uint64
+	SystemDefaultActivationContextData uint64
+	SystemAssemblyStorageMap           uint64
+	MinimumStackCommit                 uint64
+	FlsCallback                        uint64
+	FlsListHead                        [16]byte
+	FlsBitmap                          uint64
+	FlsBitmapBits                      [4]uint32
+	FlsHighIndex                       uint64
+	WerRegistrationData                uint64
+	WerShipAssertPtr                   uint64
+	pContextData                       uint32
+	pUnused                            uint32
+	pImageHeaderHash                   uint64
+	structTracingFlags                 [8]byte
+	CsrServerReadOnlySharedMemoryBase  uint64
+	TppWorkerListLock                  uint64
+	TppWorkerpList                     [16]byte
+	WaitOnAddressHashTable             [0x80]uint64
+	TelemetryCoverageHeader            uint64
+	CloudFileFlags                     uint64
+}
+
 type ClientID struct {
 	ProcessHandle uint32
 	ThreadHandle  uint32
@@ -175,6 +290,15 @@ type UnicodeString32 struct {
 	Length        uint16
 	MaximumLength uint16
 	Buffer        uint32
+}
+
+// https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/why-thunking-is-necessary
+// padding needed to align to 8-byte boundary
+type UnicodeString64 struct {
+	Length        uint16
+	MaximumLength uint16
+	_             [4]byte
+	Buffer        uint64
 }
 
 type RtlUserProcessParameters32 struct {
@@ -200,6 +324,21 @@ type PebLdrDataTableEntry32 struct {
 	HashLinks                  [8]byte // increase by PVOID+ULONG if <OS6.2
 }
 
+type PebLdrDataTableEntry64 struct {
+	InOrderLinks               [16]byte
+	InMemoryOrderLinks         [16]byte
+	InInitializationOrderLinks [16]byte
+	DllBase                    uint64
+	EntryPoint                 uint64
+	SizeOfImage                uint64
+	FullDllName                UnicodeString64
+	BaseDllName                UnicodeString64
+	Flags                      uint32
+	LoadCount                  uint16 // named ObseleteLoadCount OS6.2+
+	TlsIndex                   uint16
+	HashLinks                  [16]byte // increase by PVOID+ULONG if <OS6.2
+}
+
 //https://www.geoffchappell.com/studies/windows/win32/ntdll/structs/peb_ldr_data.htm
 type PebLdrData32 struct {
 	Length                          uint32
@@ -211,6 +350,18 @@ type PebLdrData32 struct {
 	EntryInProgress                 uint32
 	ShutdownInProgress              uint32 //boolean
 	ShutdownThreadId                uint32
+}
+
+type PebLdrData64 struct {
+	Length                          uint32
+	Initialized                     uint32 //boolean
+	SsHandle                        uint32
+	InLoadOrderModuleList           [16]byte
+	InMemoryOrderModuleList         [16]byte
+	InInitializationOrderModuleList [16]byte
+	EntryInProgress                 uint64
+	ShutdownInProgress              uint64 //boolean
+	ShutdownThreadId                uint64
 }
 
 type UserProcessParameters32 struct {
@@ -264,9 +415,9 @@ func (emu *WinEmulator) extractExports(pe *pefile.PeFile) {
 
 func (emu *WinEmulator) getLdrPointer(baseaddr, offset, length uint64, adjust64 bool) uint64 {
 	loc := baseaddr + (offset * (emu.PtrSize / 4))
-	if emu.PtrSize == 8 && adjust64 {
-		loc = (loc * 2) - 8
-	}
+	//if emu.PtrSize == 8 && adjust64 {
+	//	loc = (loc * 2) - 8
+	//}
 	mem, _ := emu.Uc.MemRead(loc, length)
 	if emu.PtrSize == 4 {
 		mem = append(mem, []byte{0, 0, 0, 0}...)
@@ -350,7 +501,13 @@ func (emu *WinEmulator) writeLdrEntry(ldrEntry uint64, listtype string) {
 	//test this for 64 bit
 	index := lt[listtype]
 	ldrPtr := emu.getLdrPointer(emu.MemRegions.PebAddress, 0xc, emu.PtrSize, false)
-	listHead := ldrPtr + (8 * (index + 1)) + 4
+	var listHead uint64
+	if emu.PtrSize == 4 {
+		listHead = ldrPtr + 12 + 8*index
+	} else {
+		listHead = ldrPtr + 12 + 16*index
+	}
+
 	end := emu.findEndOfListEntry(listHead)
 	buf := make([]byte, emu.PtrSize)
 	if emu.PtrSize == 4 {
@@ -519,34 +676,66 @@ func (emu *WinEmulator) initCommandLine() error {
 
 //build our PEB and write it to emulator memory
 func (emu *WinEmulator) initPEB(pe *pefile.PeFile) uint64 {
-	// LdrData
-	pebLdrData := PebLdrData32{}
-	pebLdrBuf := new(bytes.Buffer)
-	binary.Write(pebLdrBuf, binary.LittleEndian, &pebLdrData)
-	pebLdrAddress := emu.Heap.Malloc(uint64(binary.Size(pebLdrData)))
-	emu.Uc.MemWrite(pebLdrAddress, pebLdrBuf.Bytes())
-	emu.initializeListHead(pebLdrAddress + 0xc)
-	emu.initializeListHead(pebLdrAddress + 0x14)
-	emu.initializeListHead(pebLdrAddress + 0x1c)
 
-	// PEB
-	peb := ProcessEnvironmentBlock32{}
-	peb.ProcessHeap = uint32(emu.MemRegions.HeapAddress)
-	peb.NumberOfProcessors = uint32(emu.Opts.ProcessorsCount)
-	peb.OsMajorVersion = int32(emu.Opts.OsMajorVersion)
-	peb.OsMinorVersion = int32(emu.Opts.OsMinorVersion)
-	peb.ImageBaseAddress = uint32(pe.ImageBase())
-	//peb.ReadOnlySharedMemoryBase = uint32(emu.Heap.Malloc(4096))
-	//peb.ReadOnlyStaticServerData = peb.ReadOnlySharedMemoryBase + 0x4b0
-	//peb.CsrServerReadOnlySharedMemoryBase = emu.Heap.Malloc(4096)
-	peb.Ldr = uint32(pebLdrAddress)
-	pebBuf := new(bytes.Buffer)
-	binary.Write(pebBuf, binary.LittleEndian, &peb)
-	pebAddress := emu.Heap.Malloc(uint64(binary.Size(&peb)))
-	emu.MemRegions.PebAddress = pebAddress
-	emu.Uc.MemWrite(pebAddress, pebBuf.Bytes())
+	if emu.UcMode == uc.MODE_32 {
+		// LdrData
+		pebLdrData := PebLdrData32{}
+		pebLdrBuf := new(bytes.Buffer)
+		binary.Write(pebLdrBuf, binary.LittleEndian, &pebLdrData)
+		pebLdrAddress := emu.Heap.Malloc(uint64(binary.Size(pebLdrData)))
+		emu.Uc.MemWrite(pebLdrAddress, pebLdrBuf.Bytes())
+		emu.initializeListHead(pebLdrAddress + 0xc)
+		emu.initializeListHead(pebLdrAddress + 0x14)
+		emu.initializeListHead(pebLdrAddress + 0x1c)
 
-	return pebAddress
+		// PEB
+		peb := ProcessEnvironmentBlock32{}
+		peb.ProcessHeap = uint32(emu.MemRegions.HeapAddress)
+		peb.NumberOfProcessors = uint32(emu.Opts.ProcessorsCount)
+		peb.OsMajorVersion = int32(emu.Opts.OsMajorVersion)
+		peb.OsMinorVersion = int32(emu.Opts.OsMinorVersion)
+		peb.ImageBaseAddress = uint32(pe.ImageBase())
+		//peb.ReadOnlySharedMemoryBase = uint32(emu.Heap.Malloc(4096))
+		//peb.ReadOnlyStaticServerData = peb.ReadOnlySharedMemoryBase + 0x4b0
+		//peb.CsrServerReadOnlySharedMemoryBase = emu.Heap.Malloc(4096)
+		peb.Ldr = uint32(pebLdrAddress)
+		pebBuf := new(bytes.Buffer)
+		binary.Write(pebBuf, binary.LittleEndian, &peb)
+		pebAddress := emu.Heap.Malloc(uint64(binary.Size(&peb)))
+		emu.MemRegions.PebAddress = pebAddress
+		emu.Uc.MemWrite(pebAddress, pebBuf.Bytes())
+
+		return pebAddress
+	} else {
+		// LdrData
+		pebLdrData := PebLdrData64{}
+		pebLdrBuf := new(bytes.Buffer)
+		binary.Write(pebLdrBuf, binary.LittleEndian, &pebLdrData)
+		pebLdrAddress := emu.Heap.Malloc(uint64(binary.Size(pebLdrData)))
+		emu.Uc.MemWrite(pebLdrAddress, pebLdrBuf.Bytes())
+		emu.initializeListHead(pebLdrAddress + 0xc)
+		emu.initializeListHead(pebLdrAddress + 0x1c)
+		emu.initializeListHead(pebLdrAddress + 0x2c)
+
+		// PEB
+		peb := ProcessEnvironmentBlock64{}
+		peb.ProcessHeap = uint64(emu.MemRegions.HeapAddress)
+		peb.NumberOfProcessors = uint32(emu.Opts.ProcessorsCount)
+		peb.OsMajorVersion = int32(emu.Opts.OsMajorVersion)
+		peb.OsMinorVersion = int32(emu.Opts.OsMinorVersion)
+		peb.ImageBaseAddress = uint64(pe.ImageBase())
+		//peb.ReadOnlySharedMemoryBase = uint32(emu.Heap.Malloc(4096))
+		//peb.ReadOnlyStaticServerData = peb.ReadOnlySharedMemoryBase + 0x4b0
+		//peb.CsrServerReadOnlySharedMemoryBase = emu.Heap.Malloc(4096)
+		peb.Ldr = uint64(pebLdrAddress)
+		pebBuf := new(bytes.Buffer)
+		binary.Write(pebBuf, binary.LittleEndian, &peb)
+		pebAddress := emu.Heap.Malloc(uint64(binary.Size(&peb)))
+		emu.MemRegions.PebAddress = pebAddress
+		emu.Uc.MemWrite(pebAddress, pebBuf.Bytes())
+
+		return pebAddress
+	}
 }
 
 // https://github.com/unicorn-engine/unicorn/blob/master/samples/sample_x86_32_gdt_and_seg_regs.c
@@ -627,6 +816,69 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 		//check this one above, might not be right
 		tib.CurrentLocale = uint32(emu.Opts.CurrentLocale)
 		tib.AddressOfPEB = uint32(pebAddress)
+		tibBuf := new(bytes.Buffer)
+		binary.Write(tibBuf, binary.LittleEndian, &tib)
+		emu.Uc.MemWrite(emu.MemRegions.TibAddress, tibBuf.Bytes())
+	} else {
+		gdtr := uc.X86Mmr{}
+		gdtr.Base = emu.MemRegions.GdtAddress
+		gdtr.Limit = 31*8 - 8
+		emu.Uc.RegWriteMmr(uc.X86_REG_GDTR, &gdtr)
+
+		gdt := [31]uint64{}
+		// cs | code segment
+		gdt[14] = util.NewGdtEntry(0, 0xfffff000, PRESENT|DATA|DATA_WRITEABLE|PRIV_3|DIR_CON_BIT, F_PROT_32)
+		// ds | data segment
+		gdt[15] = util.NewGdtEntry(0, uint32(ds), PRESENT|DATA|DATA_WRITEABLE|PRIV_3|DIR_CON_BIT, F_PROT_32)
+		// fs | data segment
+		gdt[16] = util.NewGdtEntry(uint32(emu.MemRegions.TibAddress), 0xfff, PRESENT|DATA|DATA_WRITEABLE|PRIV_3|DIR_CON_BIT, F_PROT_32)
+		gdt[17] = util.NewGdtEntry(0, uint32(ds), PRESENT|CODE|CODE_READABLE|PRIV_0|DIR_CON_BIT, F_PROT_32)
+
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.LittleEndian, &gdt)
+		emu.Uc.MemWrite(emu.MemRegions.GdtAddress, buf.Bytes())
+
+		if err := emu.Uc.RegWrite(uc.X86_REG_CS, util.CreateSelector(14, S_GDT|S_PRIV_3)); err != nil {
+			return err
+		}
+		if err := emu.Uc.RegWrite(uc.X86_REG_FS, util.CreateSelector(16, S_GDT|S_PRIV_3)); err != nil {
+			return err
+		}
+		if err := emu.Uc.RegWrite(uc.X86_REG_SS, util.CreateSelector(17, S_GDT|S_PRIV_0)); err != nil {
+			return err
+		}
+		if err := emu.Uc.RegWrite(uc.X86_REG_ES, util.CreateSelector(15, S_GDT|S_PRIV_0)); err != nil {
+			return err
+		}
+		if err := emu.Uc.RegWrite(uc.X86_REG_GS, util.CreateSelector(15, S_GDT|S_PRIV_0)); err != nil {
+			return err
+		}
+		if err := emu.Uc.RegWrite(uc.X86_REG_DS, util.CreateSelector(15, S_GDT|S_PRIV_3)); err != nil {
+			return err
+		}
+
+		// tls buffer
+
+		// client id
+		clientID := ClientID{0x41414141, 0x42424242}
+		clientIDBuf := new(bytes.Buffer)
+		binary.Write(clientIDBuf, binary.LittleEndian, &clientID)
+		clientIDAddress := emu.Heap.Malloc(uint64(binary.Size(&clientID)))
+		emu.Uc.MemWrite(clientIDAddress, clientIDBuf.Bytes())
+
+		// PEB
+		pebAddress := emu.initPEB(pe)
+
+		// TIB
+		tib := ThreadInformationBlock64{}
+		tib.ProcessId = 0x1001
+		tib.CurrentThreadId = 0x2001
+		tib.StackBaseHigh = uint64(emu.MemRegions.StackAddress)
+		tib.StackLimit = uint64(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
+		tib.LinearAddressOfTEB = uint64(emu.MemRegions.TibAddress)
+		//check this one above, might not be right
+		tib.CurrentLocale = uint32(emu.Opts.CurrentLocale)
+		tib.AddressOfPEB = uint64(pebAddress)
 		tibBuf := new(bytes.Buffer)
 		binary.Write(tibBuf, binary.LittleEndian, &tib)
 		emu.Uc.MemWrite(emu.MemRegions.TibAddress, tibBuf.Bytes())
