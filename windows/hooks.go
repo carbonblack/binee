@@ -578,7 +578,7 @@ func SkipFunctionStdCall(set_return bool, ret uint64) func(emu *WinEmulator, ins
 			// TODO, fix stack adjustment to reflect parameters passed in registers
 			rsp, _ := emu.Uc.RegRead(uc.X86_REG_RSP)
 			ripBytes, _ := emu.Uc.MemRead(rsp, 8)
-			rip := uint64(binary.LittleEndian.Uint32(ripBytes))
+			rip := binary.LittleEndian.Uint64(ripBytes)
 			emu.Uc.RegWrite(uc.X86_REG_RIP, rip)
 			emu.Uc.RegWrite(uc.X86_REG_RSP, rsp+4+uint64(4*len(instruction.Hook.Parameters)))
 		}
