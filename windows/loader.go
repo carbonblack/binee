@@ -884,7 +884,7 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 		if err := emu.Uc.RegWrite(uc.X86_REG_ES, util.CreateSelector(15, S_GDT|S_PRIV_0)); err != nil {
 			return err
 		}
-		if err := emu.Uc.RegWrite(uc.X86_REG_GS, util.CreateSelector(15, S_GDT|S_PRIV_0)); err != nil {
+		if err := emu.Uc.RegWrite(uc.X86_REG_GS, util.CreateSelector(16, S_GDT|S_PRIV_0)); err != nil {
 			return err
 		}
 		if err := emu.Uc.RegWrite(uc.X86_REG_DS, util.CreateSelector(15, S_GDT|S_PRIV_3)); err != nil {

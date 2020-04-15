@@ -601,10 +601,10 @@ func (pe *PeFile) ImportedDlls() []string {
 	return dllNames
 }
 
-func (pe *PeFile) getSectionByRva(rva uint32) *Section {
+func (pe *PeFile) getSectionByRva(rva uint64) *Section {
 	var section *Section
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
-		if rva >= pe.Sections[i].VirtualAddress && rva < pe.Sections[i].VirtualAddress+pe.Sections[i].Size {
+		if rva >= uint64(pe.Sections[i].VirtualAddress) && rva < uint64(pe.Sections[i].VirtualAddress+pe.Sections[i].Size) {
 			section = pe.Sections[i]
 		}
 	}
@@ -693,7 +693,7 @@ func (pe *PeFile) readImports() {
 					thunk2 += 4
 				} else {
 					// might be in a different section
-					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
+					if sec := pe.getSectionByRva(uint64(thunk1) + 2); sec != nil {
 						v := thunk1 + 2 - sec.VirtualAddress
 						funcName := readString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), 0})
@@ -728,7 +728,7 @@ func (pe *PeFile) readImports() {
 
 				} else {
 					// might be in a different section
-					if sec := pe.getSectionByRva(uint32(thunk1) + 2); sec != nil {
+					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
 						v := uint32(thunk1) + 2 - sec.VirtualAddress
 						funcName := readString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), 0})

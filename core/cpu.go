@@ -170,6 +170,7 @@ type Registers64 struct {
 }
 
 func (self *Registers64) String() string {
+
 	ret := fmt.Sprintf("rip is 0x%016x\n", self.Rip)
 	ret += fmt.Sprintf("rsp is 0x%016x\n", self.Rsp)
 	ret += fmt.Sprintf("rax is 0x%016x\n", self.Rax)
