@@ -985,7 +985,7 @@ func (emu *WinEmulator) initRegisters() error {
 		}
 
 	} else {
-		if err := emu.Uc.RegWrite(uc.X86_REG_RSP, emu.MemRegions.StackAddress+0x100); err != nil {
+		if err := emu.Uc.RegWrite(uc.X86_REG_RSP, emu.MemRegions.StackAddress+emu.MemRegions.StackSize-0x100000); err != nil {
 			return err
 		}
 
@@ -1149,7 +1149,9 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 				continue
 			}
 
+
 			importedDll := peMap[importInfo.DllName]
+
 			if importedDll == nil {
 				continue
 			}

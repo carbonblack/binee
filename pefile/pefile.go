@@ -538,7 +538,6 @@ type ImportDirectory struct {
 }
 
 func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) error {
-
 	section := pe.getSectionByRva(uint64(importInfo.Offset))
 	if section == nil {
 		return fmt.Errorf("error setting address for %s.%s to %x, section not found", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
@@ -555,7 +554,7 @@ func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) erro
 	} else {
 		buf := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buf, realAddr)
-		thunkAddress := uint16(importInfo.Offset) & 0xfff
+		thunkAddress := importInfo.Offset - section.VirtualAddress
 		for i := 0; i < 8; i++ {
 			section.Raw[int(thunkAddress)+i] = buf[i]
 		}
@@ -680,7 +679,8 @@ func (pe *PeFile) readImports() {
 
 		} else {
 			var thunk1 uint64
-			var thunk2 uint64 = uint64(importDirectory.ImportAddressTableRva - section.VirtualAddress)
+			section = pe.getSectionByRva(uint64(importDirectory.ImportAddressTableRva))
+			thunk2 := importDirectory.ImportAddressTableRva
 
 			importThunk := 0
 			if importDirectory.ImportLookupTableRva > section.VirtualAddress {
@@ -690,6 +690,10 @@ func (pe *PeFile) readImports() {
 			}
 
 			for ; ; importThunk += 4 {
+				if importThunk+4 > len(section.Raw) {
+					break
+				}
+
 				// get first thunk
 				if thunk1 = binary.LittleEndian.Uint64(section.Raw[uint32(importThunk) : uint32(importThunk)+8]); thunk1 == 0 {
 					break
