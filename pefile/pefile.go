@@ -461,7 +461,7 @@ func (pe *PeFile) readExports() error {
 	}
 
 	//get the section with exports data
-	section := pe.getSectionByRva(exportsRva)
+    section := pe.getSectionByRva(uint64(exportsRva))
 
 	if section == nil {
 		return nil
@@ -539,7 +539,7 @@ type ImportDirectory struct {
 
 func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) error {
 
-	section := pe.getSectionByRva(importInfo.Offset)
+	section := pe.getSectionByRva(uint64(importInfo.Offset))
 	if section == nil {
 		return fmt.Errorf("error setting address for %s.%s to %x, section not found", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
 	}
@@ -580,7 +580,7 @@ func (pe *PeFile) ImportedDlls() []string {
 func (pe *PeFile) getSectionByRva(rva uint64) *Section {
 	var section *Section
 	//In the normal pe structure, headers is not a section, but some malwares may hide in and include from this.
-	if rva > 0 && rva < pe.HeadersAsSection.VirtualSize {
+	if rva > 0 && rva < uint64(pe.HeadersAsSection.VirtualSize) {
 		return pe.HeadersAsSection
 	}
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
@@ -601,7 +601,7 @@ func (pe *PeFile) readImports() {
 	}
 
 	//get the section with imports data
-	section := pe.getSectionByRva(importsRva)
+	section := pe.getSectionByRva(uint64(importsRva))
 
 	if section == nil {
 		return
@@ -617,7 +617,7 @@ func (pe *PeFile) readImports() {
 
 	//loop over each dll import
 	for i := tableOffset; ; i += uint32(binary.Size(ImportDirectory{})) {
-		section = pe.getSectionByRva(importsRva)
+		section = pe.getSectionByRva(uint64(importsRva))
 		if _, err := r.Seek(int64(i), io.SeekStart); err != nil {
 			log.Fatal(err)
 		}
@@ -632,12 +632,12 @@ func (pe *PeFile) readImports() {
 			break
 		}
 
-		requiredSection := pe.getSectionByRva(importDirectory.NameRva)
+		requiredSection := pe.getSectionByRva(uint64(importDirectory.NameRva))
 		name := strings.ToLower(readString(requiredSection.Raw[importDirectory.NameRva-requiredSection.VirtualAddress:]))
 
 		if pe.PeType == Pe32 {
 			var thunk1 uint32
-			section = pe.getSectionByRva(importDirectory.ImportAddressTableRva)
+			section = pe.getSectionByRva(uint64(importDirectory.ImportAddressTableRva))
 			thunk2 := importDirectory.ImportAddressTableRva
 			importThunk := 0
 
