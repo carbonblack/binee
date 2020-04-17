@@ -137,3 +137,38 @@ root@6a6fe8c2b2a7:~/go/src/github.com/carbonblack/binee# go build && ./binee tes
 ```
 
 
+## Compiling on windows:
+
+1-Install MSYS64/32  : https://osdn.net/projects/mingw/releases/  
+2-update the system packages :   
+`  $ pacman --needed -Sy bash pacman pacman-mirrors msys2-runtime`  
+ -restart MSYS then update everything else :   
+`  $ pacman -Su`  
+
+  To compile for Windows 32-bit, run:
+```
+  $ pacman -S python2
+  $ pacman -S make
+  $ pacman -S mingw-w64-i686-toolchain
+  ```
+  To compile for Windows 64-bit, run:
+```
+  $ pacman -S python2
+  $ pacman -S make
+  $ pacman -S mingw-w64-x86_64-toolchain
+  ```
+  -install Go :  
+`pacman -S mingw-w64-x86_64-go`
+
+3-restart MSYS again ; then clone into unicorn and install it:  
+ `git clone https://github.com/unicorn-engine/unicorn `  
+ `cd unicorn`  
+ `./make.sh `  
+ `./make.sh install`  
+
+4-Clone Binee   
+`cd Binee`  
+`go get`  
+`go build`  
+
+
