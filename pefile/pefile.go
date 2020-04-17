@@ -156,7 +156,7 @@ type Section struct {
 type ImportInfo struct {
 	DllName  string
 	FuncName string
-	Offset   uint64
+	Offset   uint32
 	Ordinal  uint16
 }
 
@@ -171,6 +171,7 @@ type PeFile struct {
 	PeType           PeType
 	Sections         []*Section
 	sectionHeaders   []*SectionHeader
+	HeadersAsSection *Section
 	Imports          []*ImportInfo
 	Exports          []*Export
 	ExportNameMap    map[string]*Export
@@ -400,6 +401,7 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 				pe.Sections[i].Raw = nil
 				continue
 			}
+
 			return fmt.Errorf("Error reading bytes at offset[0x%x] in section[%s] of file %s: %v", pe.Sections[i].Offset, pe.Sections[i].Name, pe.Path, err)
 		}
 		pe.Sections[i].Raw = raw
@@ -407,6 +409,7 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 	}
 
 	pe.RawHeaders = data[0:pe.Sections[0].Offset]
+	pe.HeadersAsSection = &Section{"HeadersSection", uint32(len(pe.RawHeaders)), 0, uint32(len(pe.RawHeaders)), 0, 0, 0, 0, 0, 0, pe.RawHeaders, 0}
 	pe.readImports()
 	if err = pe.readExports(); err != nil {
 		return err
@@ -450,29 +453,22 @@ type Export struct {
 }
 
 func (pe *PeFile) readExports() error {
-	var exportsRva int
+	var exportsRva uint32
 	if pe.PeType == Pe32 {
-		exportsRva = int(pe.OptionalHeader.(*OptionalHeader32).DataDirectories[0].VirtualAddress)
+		exportsRva = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[0].VirtualAddress
 	} else {
-		exportsRva = int(pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[0].VirtualAddress)
+		exportsRva = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[0].VirtualAddress
 	}
 
-	//get the section with imports data
-	var section Section
-	sectionFound := false
-	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
-		if exportsRva >= int(pe.Sections[i].VirtualAddress) && exportsRva < int(pe.Sections[i].VirtualAddress+pe.Sections[i].Size) {
-			section = *pe.Sections[i]
-			sectionFound = true
-		}
-	}
+	//get the section with exports data
+	section := pe.getSectionByRva(exportsRva)
 
-	if sectionFound == false {
+	if section == nil {
 		return nil
 	}
 
 	// address in section where table resides
-	tableOffset := exportsRva - int(section.VirtualAddress)
+	tableOffset := exportsRva - section.VirtualAddress
 
 	// create raw data reader
 	r := bytes.NewReader(section.Raw)
@@ -487,16 +483,16 @@ func (pe *PeFile) readExports() error {
 		return fmt.Errorf("Error retrieving %s exportDirectory", pe.Path)
 	}
 
-	names := exportDirectory.NamesRva - section.VirtualAddress
-	ordinals := exportDirectory.OrdinalsRva - section.VirtualAddress
+	namesTableRVA := exportDirectory.NamesRva - section.VirtualAddress
+	ordinalsTableRVA := exportDirectory.OrdinalsRva - section.VirtualAddress
 	var ordinal uint16
 
 	pe.ExportNameMap = make(map[string]*Export)
 	pe.ExportOrdinalMap = make(map[int]*Export)
 
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
-		// seek to names table
-		if _, err := r.Seek(int64(names+uint32(i*4)), io.SeekStart); err != nil {
+		// seek to index in names table
+		if _, err := r.Seek(int64(namesTableRVA+uint32(i*4)), io.SeekStart); err != nil {
 			return fmt.Errorf("Error seeking %s for exports names table: %v", pe.Path, err)
 		}
 
@@ -508,7 +504,7 @@ func (pe *PeFile) readExports() error {
 		name := readString(section.Raw[exportAddressTable.ExportRva-section.VirtualAddress:])
 
 		// get first Name in array
-		ordinal = binary.LittleEndian.Uint16(section.Raw[ordinals+uint32(i*2) : ordinals+uint32(i*2)+2])
+		ordinal = binary.LittleEndian.Uint16(section.Raw[ordinalsTableRVA+uint32(i*2) : ordinalsTableRVA+uint32(i*2)+2])
 
 		// seek to ordinals table
 		if _, err := r.Seek(int64(uint32(ordinal)*4+exportDirectory.FunctionsRva-section.VirtualAddress), io.SeekStart); err != nil {
@@ -523,7 +519,7 @@ func (pe *PeFile) readExports() error {
 
 		rva := exportOrdinalTable.ExportRva
 
-		export := &Export{name, ordinal, rva}
+		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase), rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
 		pe.ExportOrdinalMap[int(ordinal)] = export
@@ -543,36 +539,16 @@ type ImportDirectory struct {
 
 func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) error {
 
-	var importsRva uint32
-	if pe.PeType == Pe32 {
-		importsRva = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[1].VirtualAddress
-	} else {
-		importsRva = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[1].VirtualAddress
-	}
-
-	// get reference to Section holding the imports address table
-	var section Section
-	sectionFound := false
-	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
-		if importsRva >= pe.Sections[i].VirtualAddress && importsRva < pe.Sections[i].VirtualAddress+pe.Sections[i].Size {
-			section = *pe.Sections[i]
-			sectionFound = true
-		}
-	}
-
-	// return error if not found
-	if sectionFound == false {
+	section := pe.getSectionByRva(importInfo.Offset)
+	if section == nil {
 		return fmt.Errorf("error setting address for %s.%s to %x, section not found", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
 	}
 
-	//fmt.Println(importInfo)
-	//fmt.Printf("0x%x\n", importInfo.Offset)
 	// update the Raw bytes with the new address
 	if pe.PeType == Pe32 {
 		buf := make([]byte, 4)
 		binary.LittleEndian.PutUint32(buf, uint32(realAddr))
-		thunkAddress := uint16(importInfo.Offset) & 0xfff
-		//fmt.Printf("0x%x\n", thunkAddress)
+		thunkAddress := importInfo.Offset - section.VirtualAddress
 		for i := 0; i < 4; i++ {
 			section.Raw[int(thunkAddress)+i] = buf[i]
 		}
@@ -603,6 +579,10 @@ func (pe *PeFile) ImportedDlls() []string {
 
 func (pe *PeFile) getSectionByRva(rva uint64) *Section {
 	var section *Section
+	//In the normal pe structure, headers is not a section, but some malwares may hide in and include from this.
+	if rva > 0 && rva < pe.HeadersAsSection.VirtualSize {
+		return pe.HeadersAsSection
+	}
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
 		if rva >= uint64(pe.Sections[i].VirtualAddress) && rva < uint64(pe.Sections[i].VirtualAddress+pe.Sections[i].Size) {
 			section = pe.Sections[i]
@@ -621,16 +601,9 @@ func (pe *PeFile) readImports() {
 	}
 
 	//get the section with imports data
-	var section Section
-	sectionFound := false
-	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
-		if importsRva >= pe.Sections[i].VirtualAddress && importsRva < pe.Sections[i].VirtualAddress+pe.Sections[i].Size {
-			section = *pe.Sections[i]
-			sectionFound = true
-		}
-	}
+	section := pe.getSectionByRva(importsRva)
 
-	if sectionFound == false {
+	if section == nil {
 		return
 	}
 
@@ -644,6 +617,7 @@ func (pe *PeFile) readImports() {
 
 	//loop over each dll import
 	for i := tableOffset; ; i += uint32(binary.Size(ImportDirectory{})) {
+		section = pe.getSectionByRva(importsRva)
 		if _, err := r.Seek(int64(i), io.SeekStart); err != nil {
 			log.Fatal(err)
 		}
@@ -658,12 +632,13 @@ func (pe *PeFile) readImports() {
 			break
 		}
 
-		name := strings.ToLower(readString(section.Raw[importDirectory.NameRva-section.VirtualAddress:]))
+		requiredSection := pe.getSectionByRva(importDirectory.NameRva)
+		name := strings.ToLower(readString(requiredSection.Raw[importDirectory.NameRva-requiredSection.VirtualAddress:]))
 
 		if pe.PeType == Pe32 {
 			var thunk1 uint32
-			var thunk2 uint32 = importDirectory.ImportAddressTableRva - section.VirtualAddress
-
+			section = pe.getSectionByRva(importDirectory.ImportAddressTableRva)
+			thunk2 := importDirectory.ImportAddressTableRva
 			importThunk := 0
 
 			// ImportLookupTableRva and ImportAddressTableRva are identical until the binary is actually loaded
@@ -673,7 +648,6 @@ func (pe *PeFile) readImports() {
 			} else {
 				importThunk = int(importDirectory.ImportAddressTableRva - section.VirtualAddress)
 			}
-
 			for ; ; importThunk += 4 {
 
 				if importThunk+4 > len(section.Raw) {
@@ -684,19 +658,20 @@ func (pe *PeFile) readImports() {
 				if thunk1 = binary.LittleEndian.Uint32(section.Raw[importThunk : importThunk+4]); thunk1 == 0 {
 					break
 				}
-
-				if thunk1&0x80000000 > 0 {
+				//This would get the ordinal bit to check how to import
+				doOrdinal := thunk1&0x80000000 > 0
+				if doOrdinal {
 					// parse by ordinal
 					funcName := ""
 					ord := uint16(thunk1 & 0xffff)
-					pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), ord})
+					pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, thunk2, ord})
 					thunk2 += 4
 				} else {
 					// might be in a different section
 					if sec := pe.getSectionByRva(uint64(thunk1) + 2); sec != nil {
 						v := thunk1 + 2 - sec.VirtualAddress
 						funcName := readString(sec.Raw[v:])
-						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), 0})
+						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, thunk2, 0})
 						thunk2 += 4
 					}
 				}
@@ -716,14 +691,14 @@ func (pe *PeFile) readImports() {
 
 			for ; ; importThunk += 4 {
 				// get first thunk
-				if thunk1 = binary.LittleEndian.Uint64(section.Raw[uint64(importThunk) : uint64(importThunk)+8]); thunk1 == 0 {
+				if thunk1 = binary.LittleEndian.Uint64(section.Raw[uint32(importThunk) : uint32(importThunk)+8]); thunk1 == 0 {
 					break
 				}
 				if thunk1&0x8000000000000000 > 0 {
 					// parse by ordinal
 					funcName := ""
 					ord := uint16(thunk1 & 0xffff)
-					pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), ord})
+					pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint32(thunk2), ord})
 					thunk2 += 8
 
 				} else {
@@ -731,7 +706,7 @@ func (pe *PeFile) readImports() {
 					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
 						v := uint32(thunk1) + 2 - sec.VirtualAddress
 						funcName := readString(sec.Raw[v:])
-						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint64(thunk2), 0})
+						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint32(thunk2), 0})
 						thunk2 += 8
 					}
 				}
@@ -969,6 +944,9 @@ func (pe *PeFile) updateRelocations() error {
 	for {
 		block := RelocationBlock{}
 		if err := binary.Read(r, binary.LittleEndian, &block); err != nil {
+			if err == io.EOF { //In case the there was no padding.
+				break
+			}
 			log.Fatal(err)
 		}
 
