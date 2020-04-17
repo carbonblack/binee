@@ -180,6 +180,9 @@ func WinregHooks(emu *WinEmulator) {
 		Parameters: []string{"key", "a:lpValueName", "lpReserved", "lpType", "lpData", "lpcbData"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			key := emu.Handles[in.Args[0]]
+			if key == nil {
+				return SkipFunctionStdCall(true, 0x1)(emu, in)
+			}
 			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
 
 			if value, err := emu.Registry.Get(key.RegKey.Hkey, key.RegKey.Name+"\\"+name); err != nil {

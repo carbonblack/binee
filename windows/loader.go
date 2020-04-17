@@ -1149,7 +1149,6 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 				continue
 			}
 
-
 			importedDll := peMap[importInfo.DllName]
 
 			if importedDll == nil {

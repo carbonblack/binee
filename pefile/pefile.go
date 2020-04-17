@@ -461,7 +461,7 @@ func (pe *PeFile) readExports() error {
 	}
 
 	//get the section with exports data
-    section := pe.getSectionByRva(uint64(exportsRva))
+	section := pe.getSectionByRva(uint64(exportsRva))
 
 	if section == nil {
 		return nil
