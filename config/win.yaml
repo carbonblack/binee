@@ -1,4 +1,4 @@
-root: "os/win10_64/"
+root: "os/win10_32/"
 code_page_identifier: 0x4e4
 registry:
     HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\PINF: ""
