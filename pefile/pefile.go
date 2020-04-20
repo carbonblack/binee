@@ -689,8 +689,8 @@ func (pe *PeFile) readImports() {
 				importThunk = int(importDirectory.ImportAddressTableRva - section.VirtualAddress)
 			}
 
-			for ; ; importThunk += 4 {
-				if importThunk+4 > len(section.Raw) {
+			for ; ; importThunk += 8 {
+				if importThunk+8 > len(section.Raw) {
 					break
 				}
 
