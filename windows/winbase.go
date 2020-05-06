@@ -48,6 +48,9 @@ func FindResource(emu *WinEmulator, in *Instruction) bool {
 	handle := in.Args[0]
 	if handle == emu.MemRegions.ImageAddress || handle == 0 {
 		dataEntry := pefile.FindResource(emu.ResourcesRoot, resourceName, resourceType)
+		if dataEntry == nil {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
 		addr := emu.Heap.Malloc(4)
 		handle := &Handle{ResourceDataEntry: dataEntry}
 		emu.Handles[addr] = handle
@@ -181,7 +184,6 @@ func WinbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
 		Fn:         FindResource,
 	})
-
 	emu.AddHook("", "FindResourceW", &Hook{
 		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
 		Fn:         FindResource,

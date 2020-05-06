@@ -48,4 +48,10 @@ func LibloaderapiHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, in.Args[0])(emu, in)
 		},
 	})
+	emu.AddHook("", "FreeResource", &Hook{
+		Parameters: []string{"hResData"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		},
+	})
 }
