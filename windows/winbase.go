@@ -1,10 +1,64 @@
 package windows
 
 import (
+	"github.com/carbonblack/binee/pefile"
+	"strconv"
 	"strings"
 
 	"github.com/carbonblack/binee/util"
 )
+
+func FindResource(emu *WinEmulator, in *Instruction) bool {
+	var resourceName interface{}
+	var resourceType interface{}
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	resourceNameArg := in.Args[1]
+	resourceTypeArg := in.Args[2]
+	resourceName = uint32(resourceNameArg)
+	resourceType = uint32(resourceTypeArg)
+	if (resourceNameArg >> 16) > 0 {
+		if wide {
+			resourceName = util.ReadWideChar(emu.Uc, resourceNameArg, 0)
+		} else {
+			resourceName = util.ReadASCII(emu.Uc, resourceNameArg, 0)
+		}
+		if resourceName.(string)[0] == '#' {
+			var err error
+			resourceName, err = strconv.Atoi(resourceName.(string)[1:])
+			if err != nil {
+				return SkipFunctionStdCall(true, 0)(emu, in) //Failed to parse
+			}
+		}
+	}
+	if (resourceTypeArg >> 16) > 0 {
+		if wide {
+			resourceType = util.ReadWideChar(emu.Uc, resourceTypeArg, 0)
+		} else {
+			resourceType = util.ReadASCII(emu.Uc, resourceTypeArg, 0)
+		}
+		if resourceType.(string)[0] == '#' {
+			var err error
+			resourceType, err = strconv.Atoi(resourceType.(string)[1:])
+			if err != nil {
+				return SkipFunctionStdCall(true, 0)(emu, in) //Failed to parse
+			}
+		}
+	}
+
+	handle := in.Args[0]
+	if handle == emu.MemRegions.ImageAddress || handle == 0 {
+		dataEntry := pefile.FindResource(emu.ResourcesRoot, resourceName, resourceType)
+		addr := emu.Heap.Malloc(4)
+		handle := &Handle{ResourceDataEntry: dataEntry}
+		emu.Handles[addr] = handle
+		return SkipFunctionStdCall(true, addr)(emu, in)
+
+	} else {
+		//Handle for other loaded files.
+
+	}
+	return SkipFunctionStdCall(true, 0)(emu, in)
+}
 
 func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "AddAtomA", &Hook{
@@ -121,6 +175,16 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, 0x1)(emu, in)
 		},
+	})
+
+	emu.AddHook("", "FindResourceA", &Hook{
+		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
+		Fn:         FindResource,
+	})
+
+	emu.AddHook("", "FindResourceW", &Hook{
+		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
+		Fn:         FindResource,
 	})
 
 }
