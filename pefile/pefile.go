@@ -161,26 +161,27 @@ type ImportInfo struct {
 }
 
 type PeFile struct {
-	Path             string
-	Name             string //import name, apiset or on disk
-	RealName         string //on disk short name
-	Sha256           string
-	DosHeader        *DosHeader
-	CoffHeader       *CoffHeader
-	OptionalHeader   interface{}
-	PeType           PeType
-	Sections         []*Section
-	sectionHeaders   []*SectionHeader
-	HeadersAsSection *Section
-	Imports          []*ImportInfo
-	Exports          []*Export
-	ExportNameMap    map[string]*Export
-	ExportOrdinalMap map[int]*Export
-	Apisets          map[string][]string
-	Size             int64
-	RawHeaders       []byte
-	oldImageBase     uint64
-	ImageSize        int64
+	Path                  string
+	Name                  string //import name, apiset or on disk
+	RealName              string //on disk short name
+	Sha256                string
+	DosHeader             *DosHeader
+	CoffHeader            *CoffHeader
+	OptionalHeader        interface{}
+	PeType                PeType
+	Sections              []*Section
+	sectionHeaders        []*SectionHeader
+	HeadersAsSection      *Section
+	Imports               []*ImportInfo
+	Exports               []*Export
+	ExportNameMap         map[string]*Export
+	ExportOrdinalMap      map[int]*Export
+	Apisets               map[string][]string
+	Size                  int64
+	RawHeaders            []byte
+	oldImageBase          uint64
+	ImageSize             int64
+	ResourceDirectoryRoot ResourceDirectory
 }
 
 func entropy(bs []byte) float64 {
@@ -415,7 +416,7 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 		return err
 	}
 	pe.readApiset()
-
+	pe.readResources()
 	return nil
 }
 
@@ -713,6 +714,218 @@ func (pe *PeFile) readImports() {
 			}
 		}
 	}
+}
+
+type ResourceDirectoryRAW struct {
+	Characteristics      uint32
+	TimeDateStamp        uint32
+	MajorVersion         uint16
+	MinorVersion         uint16
+	NumberOfNamedEntries uint16
+	NumberOfIdEntries    uint16
+}
+type ResourceDirectory struct {
+	depth                uint32
+	Characteristics      uint32
+	TimeDateStamp        uint32
+	MajorVersion         uint16
+	MinorVersion         uint16
+	NumberOfNamedEntries uint16
+	NumberOfIdEntries    uint16
+	ResType              string
+	Entries              []ResourceDirectoryEntry
+}
+
+type ResourceDirectoryEntryPESTRUCTURE struct {
+	NameOffset   uint32
+	OffsetToData uint32
+}
+type ResourceDirectoryEntry struct {
+	NameOffset            uint32
+	OffsetToData          uint32
+	Name                  string
+	ID                    uint32
+	ResourceDirectoryNode ResourceDirectory
+	ResourceDataEntryNode ResourceDataEntry
+}
+
+type ResourceDataEntry struct {
+	OffsetToData uint32
+	Size         uint32
+	CodePage     uint32
+	Reserved     uint32
+}
+
+func WideStringToString(wideString []byte, size int) string {
+	ret := make([]byte, 0, 0)
+	for i := 0; i < size; i += 2 {
+		b := wideString[i : i+2]
+
+		if b[0] == 0x00 && b[1] == 0x00 {
+			break
+		}
+
+		switch b[0] {
+		case 0x09:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x74)
+		case 0x0a:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x6e)
+		case 0x0b:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x76)
+		case 0x0c:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x66)
+		case 0x0d:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x72)
+		default:
+			ret = append(ret, b[0])
+		}
+	}
+
+	return string(ret)
+}
+
+func (pe *PeFile) GetResourceType(resourceType uint32) string {
+	values := []string{"CURSOR", "BITMAP", "ICON", "MENU", "DIALOG", "STRING", "FONTDIR", "FONT", "ACCELERATOR", "RCDATA", "MESSAGETABLE", "GROUP_CURSOR", "UNDOCUMENTED", "GROUP_ICON", "UNDOCUMENTED", "VERSION", "DLGINCLUDE", "UNDOCUMENTED", "PLUGPLAY", "VXD", "ANICURSOR", "ANIICON", "HTML", "MANIFEST"}
+	if int(resourceType) > len(values) {
+		return "UNDOCUMENTED"
+	}
+	return values[resourceType-1]
+}
+
+func (pe *PeFile) readDirectoryRecursively(rootRva uint32, currentDirectoryRva uint32, depth uint32) (ResourceDirectory, error) {
+	section := pe.getSectionByRva(currentDirectoryRva)
+	var ret ResourceDirectory
+	r := bytes.NewReader(section.Raw)
+	rdRaw := ResourceDirectoryRAW{}
+	if _, err := r.Seek(int64(currentDirectoryRva-section.VirtualAddress), io.SeekStart); err != nil {
+		return ResourceDirectory{}, err
+	}
+	if err := binary.Read(r, binary.LittleEndian, &rdRaw); err != nil {
+		return ResourceDirectory{}, err
+	}
+	numberOfEntries := rdRaw.NumberOfIdEntries + rdRaw.NumberOfNamedEntries
+	currentEntry, _ := r.Seek(0, io.SeekCurrent)
+	for i := uint16(0); i < numberOfEntries; i++ {
+		var resourceDirectoryEntry ResourceDirectoryEntry
+		rdeRaw := ResourceDirectoryEntryPESTRUCTURE{}
+		//In case of seeking to name, we have to seek back.
+		if _, err := r.Seek(currentEntry, io.SeekStart); err != nil {
+			return ResourceDirectory{}, err
+		}
+		if err := binary.Read(r, binary.LittleEndian, &rdeRaw); err != nil {
+			return ResourceDirectory{}, err
+		}
+		currentEntry, _ = r.Seek(0, io.SeekCurrent)
+		isID := rdeRaw.NameOffset&(0x80000000) == 0
+		id := rdeRaw.NameOffset &^ (0x80000000)
+		if !isID {
+
+			if _, err := r.Seek(int64(id+(rootRva-section.VirtualAddress)), io.SeekStart); err != nil {
+				return ResourceDirectory{}, err
+			}
+			//No need for the structure ResourceDirStringU
+			var length uint16
+			if err := binary.Read(r, binary.LittleEndian, &length); err != nil {
+				return ResourceDirectory{}, err
+			}
+			wideString := make([]byte, length*2)
+			r.Read(wideString)
+			resourceDirectoryEntry.Name = WideStringToString(wideString, int(length*2))
+		} else {
+			resourceDirectoryEntry.ID = id & 0xffff
+		}
+		isDirectory := rdeRaw.OffsetToData&(0x80000000) > 0
+		address := rdeRaw.OffsetToData &^ (0x80000000)
+		if isDirectory {
+			temp, err := pe.readDirectoryRecursively(rootRva, rootRva+address, depth+1)
+			if err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDirectoryEntry.ResourceDirectoryNode = temp
+		} else {
+
+			if _, err := r.Seek(int64(address+(rootRva-section.VirtualAddress)), io.SeekStart); err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDataEntry := ResourceDataEntry{}
+			if err := binary.Read(r, binary.LittleEndian, &resourceDataEntry); err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDirectoryEntry.ResourceDataEntryNode = resourceDataEntry
+		}
+		resourceDirectoryEntry.NameOffset = rdeRaw.NameOffset
+		resourceDirectoryEntry.OffsetToData = rdeRaw.OffsetToData
+		ret.Entries = append(ret.Entries, resourceDirectoryEntry)
+	}
+	ret.NumberOfIdEntries = rdRaw.NumberOfIdEntries
+	ret.NumberOfNamedEntries = rdRaw.NumberOfNamedEntries
+	ret.Characteristics = rdRaw.Characteristics
+	ret.MajorVersion = rdRaw.MajorVersion
+	ret.MinorVersion = rdRaw.MinorVersion
+	ret.TimeDateStamp = rdRaw.TimeDateStamp
+	ret.depth = depth
+	return ret, nil
+}
+func searchEntry(directoryEntry ResourceDirectory, name interface{}) *ResourceDirectoryEntry {
+	for _, entry := range directoryEntry.Entries {
+		switch name.(type) {
+		case uint32:
+			if entry.ID == name.(uint32) {
+				return &entry
+			}
+		case string:
+			if entry.Name == name.(string) {
+				return &entry
+			}
+
+		}
+	}
+	return nil
+}
+
+func FindResourceType(root ResourceDirectory, typeID interface{}) ResourceDirectory {
+	retType := searchEntry(root, typeID)
+	return retType.ResourceDirectoryNode
+}
+func FindResource(root ResourceDirectory, name interface{}, typeID interface{}) *ResourceDataEntry {
+
+	requiredType := searchEntry(root, typeID)
+	if requiredType == nil {
+		return nil
+	}
+	requiredName := searchEntry(requiredType.ResourceDirectoryNode, name)
+	if requiredName == nil {
+		return nil
+	}
+	//TODO: add support for languages
+	return &requiredName.ResourceDirectoryNode.Entries[0].ResourceDataEntryNode
+}
+func (pe *PeFile) readResources() error {
+	var resourcesRVA uint32
+	var err error
+
+	if pe.PeType == Pe32 {
+		resourcesRVA = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[2].VirtualAddress
+	} else {
+		resourcesRVA = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[2].VirtualAddress
+	}
+
+	if resourcesRVA != 0 {
+		if pe.ResourceDirectoryRoot, err = pe.readDirectoryRecursively(resourcesRVA, resourcesRVA, 0); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type ApisetHeader63 struct {

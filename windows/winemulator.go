@@ -92,6 +92,7 @@ type WinEmulator struct {
 	Scheduler          *ScheduleManager
 	Fls                [64]uint64
 	Opts               WinOptions
+	ResourcesRoot      pefile.ResourceDirectory
 	// these commands are used to keep state during single step mode
 	LastCommand  string
 	Breakpoints  map[uint64]uint64
@@ -210,6 +211,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.MemRegions.LibSize = uint64(1024 * 1024 * 1024)
 	emu.MemRegions.ImageSize = uint64(32 * 1024 * 1024)
 	emu.Seed = 1
+	emu.ResourcesRoot = pe.ResourceDirectoryRoot
 
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
