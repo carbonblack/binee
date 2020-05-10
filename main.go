@@ -20,6 +20,7 @@ func main() {
 	configFilePath := flag.String("c", "", "path to configuration file")
 	listExports := flag.Bool("e", false, "dump pe file's exports table")
 	listImports := flag.Bool("i", false, "dump a pe file's imports table")
+	listResources := flag.Bool("res", false, "dump a pe file's resources section")
 	outputJSON := flag.Bool("j", false, "output data as json")
 	instructionLog := flag.Bool("l", false, "log instructions to a []*Instruction slice, typically this is for programmatic emulation")
 	verbose2 := flag.Bool("vv", false, "verbose level 2")
@@ -103,7 +104,25 @@ func main() {
 		}
 		return
 	}
+	if *listResources {
+		if pe, err := pefile.LoadPeFile(flag.Arg(0)); err == nil {
+			var resourcesRVA uint32
+			if pe.PeType == pefile.Pe32 {
+				resourcesRVA = pe.OptionalHeader.(*pefile.OptionalHeader32).DataDirectories[2].VirtualAddress
+			} else {
+				resourcesRVA = pe.OptionalHeader.(*pefile.OptionalHeader32P).DataDirectories[2].VirtualAddress
+			}
+			if resourcesRVA != 0 {
+				pe.PrintResources()
+			} else {
+				fmt.Println("This executable has no resources section.")
 
+			}
+		} else {
+			fmt.Println("Can't parse pefile.")
+		}
+		return
+	}
 	// print the binaries export table
 	if *listExports {
 		if pe, err := pefile.LoadPeFile(flag.Arg(0)); err == nil {
