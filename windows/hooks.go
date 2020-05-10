@@ -48,6 +48,7 @@ func (emu *WinEmulator) LoadHooks() {
 	UtilapiHooks(emu)
 	ShlobjCoreHooks(emu)
 	MemoryApiHooks(emu)
+	ToolHelpHooks(emu)
 }
 func (emu *WinEmulator) SetupHooks() error {
 	emu.Uc.HookAdd(uc.HOOK_CODE, HookCode(emu), 1, 0)
