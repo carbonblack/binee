@@ -93,6 +93,7 @@ type WinEmulator struct {
 	Fls                [64]uint64
 	Opts               WinOptions
 	ResourcesRoot      pefile.ResourceDirectory
+	ProcessManager     *ProcessManager
 	// these commands are used to keep state during single step mode
 	LastCommand  string
 	Breakpoints  map[uint64]uint64
@@ -212,6 +213,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.MemRegions.ImageSize = uint64(32 * 1024 * 1024)
 	emu.Seed = 1
 	emu.ResourcesRoot = pe.ResourceDirectoryRoot
+	emu.ProcessManager = InitializeProcessManager(true)
 
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
