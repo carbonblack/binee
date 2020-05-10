@@ -794,7 +794,7 @@ func WideStringToString(wideString []byte, size int) string {
 	return string(ret)
 }
 
-func (pe *PeFile) GetResourceType(resourceType uint32) string {
+func GetResourceType(resourceType uint32) string {
 	values := []string{"CURSOR", "BITMAP", "ICON", "MENU", "DIALOG", "STRING", "FONTDIR", "FONT", "ACCELERATOR", "RCDATA", "MESSAGETABLE", "GROUP_CURSOR", "UNDOCUMENTED", "GROUP_ICON", "UNDOCUMENTED", "VERSION", "DLGINCLUDE", "UNDOCUMENTED", "PLUGPLAY", "VXD", "ANICURSOR", "ANIICON", "HTML", "MANIFEST"}
 	if int(resourceType) > len(values) {
 		return "UNDOCUMENTED"
@@ -926,6 +926,38 @@ func (pe *PeFile) readResources() error {
 		}
 	}
 	return nil
+}
+
+func printLanguages(directory ResourceDirectory) {
+	for j, entry := range directory.Entries {
+		if entry.Name != "" {
+			fmt.Printf("\t\t(%d)Language:%s\n", j, entry.Name)
+		} else {
+			primaryLanguage := entry.ID & 0xff
+			subLanguage := (entry.ID & 0xff00) >> 8
+			fmt.Printf("\t\t(%d)lang id: 0x%x (Primary Language ID:0x%x| SubLanguage ID:0x%x)\n ", j, entry.ID, primaryLanguage, subLanguage)
+		}
+	}
+}
+func printActual(directory ResourceDirectory) {
+	for j, entry := range directory.Entries {
+		if entry.Name != "" {
+			fmt.Printf("\t(%d)Name:%s\n", j, entry.Name)
+		} else {
+			fmt.Printf("\t(%d)ID:0x%x\n", j, entry.ID)
+		}
+		printLanguages(entry.ResourceDirectoryNode)
+	}
+}
+func (pe *PeFile) PrintResources() {
+	for i, entry := range pe.ResourceDirectoryRoot.Entries {
+		resourceType := GetResourceType(entry.ID)
+		if entry.Name != "" {
+			resourceType = entry.Name
+		}
+		fmt.Printf("(%d)Type:%s\n", i, resourceType)
+		printActual(entry.ResourceDirectoryNode)
+	}
 }
 
 type ApisetHeader63 struct {
