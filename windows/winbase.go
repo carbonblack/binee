@@ -63,6 +63,45 @@ func FindResource(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, 0)(emu, in)
 }
 
+func emuResourceNames(emu *WinEmulator, in *Instruction) bool {
+	var resourceType interface{}
+	resourceTypeRaw := in.Args[1]
+	resourceType = uint32(resourceTypeRaw)
+	if (resourceTypeRaw >> 16) > 0 { //(IS_INTRESOURCE)
+		wide := in.Hook.Name[0] == 'W'
+		if wide {
+			resourceType = util.ReadWideChar(emu.Uc, resourceTypeRaw, 0)
+		} else {
+			resourceType = util.ReadASCII(emu.Uc, resourceTypeRaw, 0)
+		}
+		if resourceType.(string)[0] == '#' {
+			resourceType, _ = strconv.Atoi(resourceType.(string)[1:])
+		}
+	}
+	SkipFunctionStdCall(true, 1)(emu, in) //Skip current function.
+	lpFunction := in.Args[2]
+	lParam := in.Args[3]
+	//Its the same process handle
+	if in.Args[0] == 0 {
+		entriesParent := pefile.FindResourceType(emu.ResourcesRoot, resourceType)
+		var parameters []uint64
+		for _, entry := range entriesParent.Entries {
+			if entry.Name != "" {
+				length := len(entry.Name)
+				addr := emu.Heap.Malloc(uint64(length))
+				rawEntry := []byte(entry.Name)
+				rawEntry = append(rawEntry, 0)
+				emu.Uc.MemWrite(addr, rawEntry)
+				parameters = []uint64{in.Args[0], in.Args[1], addr, lParam}
+			} else {
+				parameters = []uint64{in.Args[0], in.Args[1], uint64(entry.ID), lParam}
+			}
+			CallStdFunction(emu, lpFunction, parameters)
+		}
+	}
+	return true
+}
+
 func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "AddAtomA", &Hook{
 		Parameters: []string{"a:lpString"},
@@ -187,6 +226,15 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "FindResourceW", &Hook{
 		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
 		Fn:         FindResource,
+	})
+
+	emu.AddHook("", "EnumResourceNamesA", &Hook{
+		Parameters: []string{"hModule", "a:lpType", "lpEnumFunc", "lParam"},
+		Fn:         emuResourceNames,
+	})
+	emu.AddHook("", "EnumResourceNamesW", &Hook{
+		Parameters: []string{"hModule", "w:lpType", "lpEnumFunc", "lParam"},
+		Fn:         emuResourceNames,
 	})
 
 }
