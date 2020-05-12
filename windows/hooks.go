@@ -586,3 +586,30 @@ func SkipFunctionStdCall(set_return bool, ret uint64) func(emu *WinEmulator, ins
 		return true
 	}
 }
+
+func CallStdFunction(emu *WinEmulator, functionAddress uint64, parameters []uint64) {
+	var currentIP uint64
+	if emu.UcMode == uc.MODE_32 {
+		currentIP, _ = emu.Uc.RegRead(uc.X86_REG_EIP)
+	} else {
+		currentIP, _ = emu.Uc.RegRead(uc.X86_REG_RIP)
+	}
+
+	if emu.UcMode == uc.MODE_32 {
+		i := len(parameters) - 1
+		for i >= 0 {
+			util.PushStack(emu.Uc, emu.UcMode, parameters[i])
+			i -= 1
+		}
+	} else {
+
+	}
+
+	util.PushStack(emu.Uc, emu.UcMode, currentIP) //returns to this after it exits
+
+	if emu.UcMode == uc.MODE_32 {
+		emu.Uc.RegWrite(uc.X86_REG_EIP, functionAddress)
+	} else {
+		emu.Uc.RegWrite(uc.X86_REG_RIP, functionAddress)
+	}
+}
