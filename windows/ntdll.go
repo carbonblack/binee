@@ -267,4 +267,15 @@ func NtdllHooks(emu *WinEmulator) {
 		Parameters: []string{"first", "second"},
 		Fn:         SkipFunctionStdCall(true, 0x0),
 	})
+
+	emu.AddHook("", "RtlExitUserThread", &Hook{
+		Parameters: []string{"dwExitCode"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			emu.Scheduler.ThreadEnded(emu.Scheduler.CurThreadId())
+			if len(emu.Scheduler.threads) == 0 {
+				return false
+			}
+			return true
+		},
+	})
 }

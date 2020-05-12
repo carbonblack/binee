@@ -3,14 +3,16 @@ package windows
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
 	"github.com/carbonblack/binee/core"
 )
 
 type Thread struct {
-	ThreadId  int
-	registers interface{}
-	Status    int
+	ThreadId        int
+	registers       interface{}
+	Status          int
+	WaitingChannels []chan int
 }
 
 type ScheduleManager struct {
@@ -23,7 +25,24 @@ type ScheduleManager struct {
 
 func NewScheduleManager(emu *WinEmulator) *ScheduleManager {
 	threads := make([]*Thread, 0, 1)
-	firstThread := &Thread{1, emu.CPU.PopContext(), 0}
+	firstThread := &Thread{1, emu.CPU.PopContext(), 0, nil}
+
+	//Building stack with ROP to exit thread after it ends.
+	if emu.PtrSize == 4 {
+		exitFunc := emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		buf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(buf, uint32(exitFunc))
+		esp, _ := emu.Uc.RegRead(unicorn.X86_REG_ESP)
+		emu.Uc.MemWrite(esp, buf)
+
+	} else {
+		exitFunc := emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, exitFunc)
+		rsp, _ := emu.Uc.RegRead(unicorn.X86_REG_RSP)
+		emu.Uc.MemWrite(rsp, buf)
+	}
+
 	threads = append(threads, firstThread)
 	handleAddr := emu.Heap.Malloc(emu.PtrSize)
 	handle := Handle{}
@@ -40,6 +59,15 @@ func NewScheduleManager(emu *WinEmulator) *ScheduleManager {
 
 func (self *ScheduleManager) CurThreadId() int {
 	return self.curThread.ThreadId
+}
+
+func (self *ScheduleManager) findThreadyByID(threadId int) *Thread {
+	for _, t := range self.threads {
+		if t.ThreadId == threadId {
+			return t
+		}
+	}
+	return nil
 }
 
 func (self *ScheduleManager) DoSchedule() {
@@ -74,8 +102,29 @@ func (self *ScheduleManager) DoSchedule() {
 	self.emu.CPU.PushContext(nextThread.registers)
 }
 
+func (self *Thread) RemoveReceiverChannel(rc chan int) {
+	var waitingChanels []chan int
+	for _, wc := range self.WaitingChannels {
+		if wc != rc {
+			waitingChanels = append(waitingChanels, wc)
+		} else {
+			close(wc)
+		}
+	}
+	self.WaitingChannels = waitingChanels
+}
+
 func (self *ScheduleManager) ThreadEnded(threadId int) uint64 {
+	//Tell channels waiting that I am closed.
+	t := self.findThreadyByID(threadId)
+	for _, c := range t.WaitingChannels {
+		c <- threadId
+	}
+
 	self.DelThread(threadId)
+	if len(self.threads) == 0 {
+		return 0
+	}
 	nextThread := self.threads[0]
 	self.curThread = nextThread
 	self.emu.CPU.PushContext(nextThread.registers)
@@ -95,7 +144,7 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 
 	// init new thread
 	self.threadsAtomic += 1
-	newThread := Thread{self.threadsAtomic, self.emu.CPU.PopContext(), int(status)}
+	newThread := Thread{self.threadsAtomic, self.emu.CPU.PopContext(), int(status), nil}
 
 	if self.emu.PtrSize == 4 {
 		// offset by one due to parameter to thread
@@ -113,6 +162,11 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 		// write the paramter that is passed into the thread function onto the stack
 		self.emu.Uc.MemWrite(stack-4, buf)
 
+		//Building stack with ROP to exit thread after it ends.
+		exitFunc := self.emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		binary.LittleEndian.PutUint32(buf, uint32(exitFunc))
+		self.emu.Uc.MemWrite(stack-8, buf)
+
 	} else {
 		newThread.registers.(*core.Registers64).Rsp = stack
 		newThread.registers.(*core.Registers64).Rip = eip
@@ -121,6 +175,10 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 		newThread.registers.(*core.Registers64).Rdi = eip
 		newThread.registers.(*core.Registers64).Rcx = eip
 		newThread.registers.(*core.Registers64).Rbp = eip
+		exitFunc := self.emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, exitFunc)
+		self.emu.Uc.MemWrite(stack, buf)
 	}
 
 	self.threads = append(self.threads, &newThread)
@@ -136,8 +194,8 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 
 func (self *ScheduleManager) DelThread(threadId int) {
 	newThreads := make([]*Thread, 0, len(self.threads))
-	for i, t := range self.threads {
-		if i+1 != threadId {
+	for _, t := range self.threads {
+		if t.ThreadId != threadId {
 			newThreads = append(newThreads, t)
 		}
 	}
