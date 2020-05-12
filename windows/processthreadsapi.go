@@ -19,6 +19,34 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"hToken", "w:lpApplicationName", "w:lpCommandLine", "lpProcessAttributes", "lpThreadAttributes", "bInheritHandles", "dwCreationFlags", "lpEnvironment", "lpCurrentDirectory", "lpStartupInfo", "lpProcessInformation"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
+	emu.AddHook("", "OpenProcess", &Hook{
+		Parameters: []string{"dwDesiredAccess", "bInheritHandle", "dwProcessId"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			procIndex := emu.ProcessManager.openProcess(uint32(in.Args[2]))
+			if procIndex == -1 {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			return SkipFunctionStdCall(true, uint64(procIndex))(emu, in)
+		},
+	})
+	emu.AddHook("", "TerminateProcess", &Hook{
+		Parameters: []string{"hProcess", "uExitCode"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			if in.Args[0] == 0xffffffff {
+				return false
+			}
+			success := emu.ProcessManager.terminateProcess(int(in.Args[0]))
+			if success {
+				return SkipFunctionStdCall(true, 0x1337)(emu, in)
+			} else {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+		},
+	})
+	emu.AddHook("", "GetPriorityClass", &Hook{
+		Parameters: []string{"Handle"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
 
 	emu.AddHook("", "CreateThread", &Hook{
 		Parameters: []string{"lpThreadAttributes", "dwStackSize", "lpStartAddress", "lpParameter", "dwCreationFlags", "lpThreadId"},
