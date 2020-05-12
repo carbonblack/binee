@@ -3,6 +3,7 @@ package windows
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 
 	"github.com/carbonblack/binee/core"
 )
@@ -24,6 +25,24 @@ type ScheduleManager struct {
 func NewScheduleManager(emu *WinEmulator) *ScheduleManager {
 	threads := make([]*Thread, 0, 1)
 	firstThread := &Thread{1, emu.CPU.PopContext(), 0}
+
+	//Building stack with ROP to exit thread after it ends.
+	if emu.PtrSize == 4 {
+		exitFunc := emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		fmt.Println(exitFunc)
+		buf := make([]byte, 4)
+		binary.LittleEndian.PutUint32(buf, uint32(exitFunc))
+		esp, _ := emu.Uc.RegRead(unicorn.X86_REG_ESP)
+		emu.Uc.MemWrite(esp, buf)
+
+	} else {
+		exitFunc := emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, exitFunc)
+		rsp, _ := emu.Uc.RegRead(unicorn.X86_REG_RSP)
+		emu.Uc.MemWrite(rsp, buf)
+	}
+
 	threads = append(threads, firstThread)
 	handleAddr := emu.Heap.Malloc(emu.PtrSize)
 	handle := Handle{}
@@ -113,6 +132,11 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 		// write the paramter that is passed into the thread function onto the stack
 		self.emu.Uc.MemWrite(stack-4, buf)
 
+		//Building stack with ROP to exit thread after it ends.
+		exitFunc := self.emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		binary.LittleEndian.PutUint32(buf, uint32(exitFunc))
+		self.emu.Uc.MemWrite(stack-8, buf)
+
 	} else {
 		newThread.registers.(*core.Registers64).Rsp = stack
 		newThread.registers.(*core.Registers64).Rip = eip
@@ -121,6 +145,10 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 		newThread.registers.(*core.Registers64).Rdi = eip
 		newThread.registers.(*core.Registers64).Rcx = eip
 		newThread.registers.(*core.Registers64).Rbp = eip
+		exitFunc := self.emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
+		buf := make([]byte, 8)
+		binary.LittleEndian.PutUint64(buf, exitFunc)
+		self.emu.Uc.MemWrite(stack, buf)
 	}
 
 	self.threads = append(self.threads, &newThread)

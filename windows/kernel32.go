@@ -846,4 +846,9 @@ func KernelbaseHooks(emu *WinEmulator) {
 			}
 		},
 	})
+
+	emu.AddHook("", "WaitForMultipleObjects", &Hook{
+		Parameters: []string{"nCount", "lpHandles", "b:bWaitAll", "dwMilliseconds"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 }
