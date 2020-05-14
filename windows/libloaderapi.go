@@ -249,6 +249,26 @@ func loadLibrary(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmul
 
 }
 
+func GetModuleHandle(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	hinstance := uint64(0)
+	if in.Args[0] == 0x0 {
+		hinstance = emu.MemRegions.ImageAddress
+	} else {
+		var s string
+		if wide {
+			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
+		} else {
+			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
+		}
+		if s[len(s)-4:] != ".dll" && s[len(s)-4:] != ".exe" && s[len(s)-1] != '.' {
+			s += ".dll"
+		}
+		return SkipFunctionStdCall(true, emu.LoadedModules[s])(emu, in)
+	}
+	return SkipFunctionStdCall(true, hinstance)(emu, in)
+}
+
 func LibloaderapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "DisableThreadLibraryCalls", &Hook{
 		Parameters: []string{"hLibModule"},
@@ -335,4 +355,14 @@ func LibloaderapiHooks(emu *WinEmulator) {
 			return loadLibrary(emu, in, true)(emu, in)
 		},
 	})
+
+	emu.AddHook("", "GetModuleHandleA", &Hook{
+		Parameters: []string{"a:lpModuleName"},
+		Fn:         GetModuleHandle,
+	})
+	emu.AddHook("", "GetModuleHandleW", &Hook{
+		Parameters: []string{"w:lpModuleName"},
+		Fn:         GetModuleHandle,
+	})
+
 }

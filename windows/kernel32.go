@@ -31,22 +31,6 @@ type StartupInfo struct {
 	StdError    uint32
 }
 
-func GetModuleHandle(emu *WinEmulator, in *Instruction, wide bool) uint64 {
-	hinstance := uint64(0)
-	if in.Args[0] == 0x0 {
-		hinstance = emu.MemRegions.ImageAddress
-	} else {
-		var s string
-		if wide {
-			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
-		} else {
-			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
-		}
-		return emu.LoadedModules[s]
-	}
-	return hinstance
-}
-
 func getModuleHandleEx(emu *WinEmulator, in *Instruction, wide bool) uint64 {
 	hinstance := uint64(0)
 	if in.Args[1] == 0x0 {
@@ -430,12 +414,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, uint64(len(f)+2))(emu, in)
 		},
 	})
-	emu.AddHook("", "GetModuleHandleA", &Hook{
-		Parameters: []string{"a:lpModuleName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return SkipFunctionStdCall(true, GetModuleHandle(emu, in, false))(emu, in)
-		},
-	})
+
 	emu.AddHook("", "GetModuleHandleExA", &Hook{
 		Parameters: []string{"dwFlags", "a:lpModuleName", "phModule"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -446,12 +425,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"dwFlags", "a:lpModuleName", "phModule"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, getModuleHandleEx(emu, in, true))(emu, in)
-		},
-	})
-	emu.AddHook("", "GetModuleHandleW", &Hook{
-		Parameters: []string{"w:lpModuleName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return SkipFunctionStdCall(true, GetModuleHandle(emu, in, true))(emu, in)
 		},
 	})
 
