@@ -47,7 +47,11 @@ func printf(emu *WinEmulator, in *Instruction) bool {
 
 func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "__acrt_iob_func", &Hook{Parameters: []string{}})
-	emu.AddHook("", "_controlfp", &Hook{Parameters: []string{"unNew", "unMask"}})
+	emu.AddHook("", "_controlfp", &Hook{
+		Parameters: []string{"unNew", "unMask"},
+		Fn:         SkipFunctionCdecl(true, 0),
+	})
+
 	emu.AddHook("", "__dllonexit", &Hook{Parameters: []string{"func", "pbegin", "pend"}})
 	emu.AddHook("", "__stdio_common_vfprintf", &Hook{
 		Parameters: []string{"stream", "_:", "_:", "a:format"},
