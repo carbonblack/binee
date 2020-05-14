@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carbonblack/binee/pefile"
 	"github.com/carbonblack/binee/util"
 )
 
@@ -103,84 +102,6 @@ func createFile(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmula
 	} else {
 		return SkipFunctionStdCall(true, 0xffffffff)
 	}
-}
-
-func loadLibrary(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
-	var err error
-
-	// read the dll that needs to be loaded
-	var name string
-	var orig string
-	if wide {
-		orig = util.ReadWideChar(emu.Uc, in.Args[0], 100)
-	} else {
-		orig = util.ReadASCII(emu.Uc, in.Args[0], 100)
-	}
-	name = strings.ToLower(orig)
-	name = strings.Replace(name, "c:\\windows\\system32\\", "", -1)
-	name = strings.Trim(name, "\x00")
-	name = strings.Trim(name, "\u0000")
-
-	if strings.Contains(name, ".dll") == false {
-		name += ".dll"
-	}
-
-	// check if library is already loaded
-	if val, ok := emu.LoadedModules[name]; ok {
-		return SkipFunctionStdCall(true, val)
-	}
-
-	var realdll string
-	// load Apisetschema dll for mapping to real dlls
-	if apisetPath, err := util.SearchFile(emu.SearchPath, "apisetschema.dll"); err == nil {
-		apiset, _ := pefile.LoadPeFile(apisetPath)
-		realdll = apiset.ApiSetLookup(name)
-	}
-
-	var path string
-	if path, err = util.SearchFile(emu.SearchPath, realdll); err != nil {
-		if path, err = util.SearchFile(emu.SearchPath, orig); err != nil {
-			return SkipFunctionStdCall(true, 0x0)
-		}
-	}
-
-	if pe, err := pefile.LoadPeFile(path); err != nil {
-		return SkipFunctionStdCall(true, 0x0)
-	} else {
-		pe.SetImageBase(emu.NextLibAddress)
-		emu.LoadedModules[name] = emu.NextLibAddress
-
-		err = emu.Uc.MemWrite(pe.ImageBase(), pe.RawHeaders)
-		for i := 0; i < len(pe.Sections); i++ {
-			err = emu.Uc.MemWrite(pe.ImageBase()+uint64(pe.Sections[i].VirtualAddress), pe.Sections[i].Raw)
-		}
-
-		// get total size of DLL in memory
-		peSize := 0
-		for i := 0; i < len(pe.Sections); i++ {
-			peSize += int(pe.Sections[i].VirtualAddress + pe.Sections[i].Size)
-		}
-
-		for _, funcs := range pe.Exports {
-			realAddr := uint64(funcs.Rva) + pe.ImageBase()
-			if _, ok := emu.libFunctionAddress[name]; !ok {
-				emu.libFunctionAddress[name] = make(map[string]uint64)
-			}
-			if _, ok := emu.libAddressFunction[name]; !ok {
-				emu.libAddressFunction[name] = make(map[uint64]string)
-			}
-			emu.libFunctionAddress[name][funcs.Name] = realAddr
-			emu.libAddressFunction[name][realAddr] = funcs.Name
-		}
-
-		// set address for next DLL
-		for i := 0; i <= peSize; i += 4096 {
-			emu.NextLibAddress += 4096
-		}
-
-		return SkipFunctionStdCall(true, pe.ImageBase())
-	}
-
 }
 
 func singleWait(threadChan <-chan int, myChan chan int, closeChannel <-chan struct{}) {
@@ -546,17 +467,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "GetProcAddress", &Hook{
-		Parameters: []string{"hModule", "a:lpProcName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
-			if dllname := emu.lookupLibByAddress(in.Args[0]); dllname != "" {
-				addr := emu.libFunctionAddress[dllname][name]
-				return SkipFunctionStdCall(true, addr)(emu, in)
-			}
-			return SkipFunctionStdCall(true, 0x0)(emu, in)
-		},
-	})
+
 	emu.AddHook("", "GetStringTypeW", &Hook{
 		Parameters: []string{"dwInfoType", "lpSrcStr", "cchSrc", "lpCharType"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -796,30 +707,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"lpLocaleName", "dwMapFlags", "w:lpSrcStr", "cchSrc", "lpDestStr", "cchDest", "lpVersionInformation", "lpReserved", "sortHandle"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "LoadLibraryA", &Hook{
-		Parameters: []string{"a:lpFileName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, false)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryExA", &Hook{
-		Parameters: []string{"a:lpFileName", "hFile", "dwFlags"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, false)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryExW", &Hook{
-		Parameters: []string{"w:lpFileName", "hFile", "dwFlags"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, true)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryW", &Hook{
-		Parameters: []string{"w:lpFileName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, true)(emu, in)
-		},
-	})
+
 	emu.AddHook("", "lstrlenA", &Hook{Parameters: []string{"a:lpString"}})
 	emu.AddHook("", "lstrlenW", &Hook{Parameters: []string{"w:lpString"}})
 	emu.AddHook("", "MapPredefinedHandleInternal", &Hook{
