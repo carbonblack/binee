@@ -102,6 +102,24 @@ func emuResourceNames(emu *WinEmulator, in *Instruction) bool {
 	return true
 }
 
+func getCurrentDirectory(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	workingDir := "c:\\windows"
+	maxLength := in.Args[0]
+	if maxLength <= uint64(len(workingDir)) { //we added or equal because we need a character for termination
+		return SkipFunctionStdCall(true, 0)(emu, in) //Failed
+	}
+	var rawBytes []byte
+	if wide {
+		rawBytes = append(util.ASCIIToWinWChar(workingDir), 0, 0)
+
+	} else {
+		rawBytes = append([]byte(workingDir), 0)
+	}
+	emu.Uc.MemWrite(in.Args[1], rawBytes)
+	return SkipFunctionStdCall(true, uint64(len(workingDir)))(emu, in)
+}
+
 func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "AddAtomA", &Hook{
 		Parameters: []string{"a:lpString"},
@@ -235,10 +253,20 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "EnumResourceNamesW", &Hook{
 		Parameters: []string{"hModule", "w:lpType", "lpEnumFunc", "lParam"},
 		Fn:         emuResourceNames,
+	})
 
 	emu.AddHook("", "LocalFree", &Hook{
 		Parameters: []string{"hMem"},
 		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "GetCurrentDirectoryA", &Hook{
+		Parameters: []string{"nBufferLength", "lpBuffer"},
+		Fn:         getCurrentDirectory,
+	})
+	emu.AddHook("", "GetCurrentDirectoryW", &Hook{
+		Parameters: []string{"nBufferLength", "lpBuffer"},
+		Fn:         getCurrentDirectory,
 	})
 
 }
