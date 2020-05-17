@@ -96,9 +96,6 @@ func WinuserHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetSystemMetrics", &Hook{
-		Parameters: []string{"nIndex"},
-	})
 	emu.AddHook("", "LoadAcceleratorsA", &Hook{
 		Parameters: []string{"hInstance", "a:lpTableName"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -188,6 +185,13 @@ func WinuserHooks(emu *WinEmulator) {
 	emu.AddHook("", "LoadStringW", &Hook{
 		Parameters: []string{"hInstance", "uID", "lpBuffer", "cchBufferMax"},
 		Fn:         loadString,
+	})
+
+	emu.AddHook("", "GetSystemMetrics", &Hook{
+		Parameters: []string{"nIndex"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, 1)(emu, in)
+		},
 	})
 
 }

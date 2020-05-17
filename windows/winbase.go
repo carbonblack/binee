@@ -189,4 +189,9 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         FindResource,
 	})
 
+	emu.AddHook("", "LocalFree", &Hook{
+		Parameters: []string{"hMem"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
 }

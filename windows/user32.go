@@ -17,4 +17,9 @@ func User32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "wvsprintfA", &Hook{
 		Parameters: []string{"lpstr", "a:lpcstr", "arglist"},
 	})
+
+	emu.AddHook("", "DialogBoxParamA", &Hook{
+		Parameters: []string{"hInstance", "a:lpTemplateName", "hWndParent", "lpDialogFunc", "dwInitParam"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 }
