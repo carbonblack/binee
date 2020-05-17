@@ -632,6 +632,11 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 		tib.StackBaseHigh = uint32(emu.MemRegions.StackAddress)
 		tib.StackLimit = uint32(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
 		tib.LinearAddressOfTEB = uint32(emu.MemRegions.TibAddress)
+		tib.AddressOfThreadLocalStorage = uint32(emu.Heap.Malloc(4096))
+		TLSaddress := make([]byte, 4)
+		TLSaddressPointer := emu.Heap.Malloc(4096)
+		binary.LittleEndian.PutUint32(TLSaddress, uint32(TLSaddressPointer))
+		emu.Uc.MemWrite(uint64(tib.AddressOfThreadLocalStorage), TLSaddress)
 		//check this one above, might not be right
 		tib.CurrentLocale = uint32(emu.Opts.CurrentLocale)
 		tib.AddressOfPEB = uint32(pebAddress)
