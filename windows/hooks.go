@@ -125,8 +125,9 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 				} else if emu.Verbosity == 1 {
 					if s := instruction.StringHook(); s != "" {
 						fmt.Println(s)
+					} else {
+						fmt.Println(instruction)
 					}
-					fmt.Println(instruction)
 				} else {
 					if instruction.Hook.Implemented == true {
 						fmt.Println(instruction.StringHook())
