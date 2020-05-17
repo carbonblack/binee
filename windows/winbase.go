@@ -235,6 +235,10 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "EnumResourceNamesW", &Hook{
 		Parameters: []string{"hModule", "w:lpType", "lpEnumFunc", "lParam"},
 		Fn:         emuResourceNames,
+
+	emu.AddHook("", "LocalFree", &Hook{
+		Parameters: []string{"hMem"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 
 }

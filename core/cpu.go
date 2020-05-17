@@ -22,7 +22,6 @@ func NewCpuManager(emu uc.Unicorn, mode int, stackAddress, stackSize, heapAddres
 	if mode == uc.MODE_64 {
 		ptrSize = 8
 	}
-
 	return &CpuManager{
 		emu,
 		mode,
@@ -91,6 +90,7 @@ type Registers32 struct {
 	EsiVal uint32
 	EdiVal uint32
 	EbpVal uint32
+	Eflags uint32
 }
 
 func (self *Registers32) String() string {
@@ -150,23 +150,24 @@ func (self *Registers32) String() string {
 }
 
 type Registers64 struct {
-	Rip uint64
-	Rsp uint64
-	Rax uint64
-	Rbx uint64
-	Rcx uint64
-	Rdx uint64
-	Rsi uint64
-	Rdi uint64
-	Rbp uint64
-	R8  uint64
-	R9  uint64
-	R10 uint64
-	R11 uint64
-	R12 uint64
-	R13 uint64
-	R14 uint64
-	R15 uint64
+	Rip    uint64
+	Rsp    uint64
+	Rax    uint64
+	Rbx    uint64
+	Rcx    uint64
+	Rdx    uint64
+	Rsi    uint64
+	Rdi    uint64
+	Rbp    uint64
+	R8     uint64
+	R9     uint64
+	R10    uint64
+	R11    uint64
+	R12    uint64
+	R13    uint64
+	R14    uint64
+	R15    uint64
+	Eflags uint64
 }
 
 func (self *Registers64) String() string {
@@ -225,7 +226,7 @@ func (self *CpuManager) ReadRegisters() interface{} {
 		esi, _ := self.emu.RegRead(uc.X86_REG_ESI)
 		edi, _ := self.emu.RegRead(uc.X86_REG_EDI)
 		ebp, _ := self.emu.RegRead(uc.X86_REG_EBP)
-
+		eflags, _ := self.emu.RegRead(uc.X86_REG_EFLAGS)
 		return &Registers32{
 			Eip:    uint32(eip),
 			EipVal: uint32(self.getAddressValue(eip)),
@@ -245,6 +246,7 @@ func (self *CpuManager) ReadRegisters() interface{} {
 			EdiVal: uint32(self.getAddressValue(edi)),
 			Ebp:    uint32(ebp),
 			EbpVal: uint32(self.getAddressValue(ebp)),
+			Eflags: uint32(eflags),
 		}
 
 	} else {
@@ -265,25 +267,26 @@ func (self *CpuManager) ReadRegisters() interface{} {
 		r13, _ := self.emu.RegRead(uc.X86_REG_R13)
 		r14, _ := self.emu.RegRead(uc.X86_REG_R14)
 		r15, _ := self.emu.RegRead(uc.X86_REG_R15)
-
+		eflags, _ := self.emu.RegRead(uc.X86_REG_EFLAGS)
 		return &Registers64{
-			Rip: uint64(rip),
-			Rsp: uint64(rsp),
-			Rax: uint64(rax),
-			Rbx: uint64(rbx),
-			Rcx: uint64(rcx),
-			Rdx: uint64(rdx),
-			Rsi: uint64(rsi),
-			Rdi: uint64(rdi),
-			Rbp: uint64(rbp),
-			R8:  uint64(r8),
-			R9:  uint64(r9),
-			R10: uint64(r10),
-			R11: uint64(r11),
-			R12: uint64(r12),
-			R13: uint64(r13),
-			R14: uint64(r14),
-			R15: uint64(r15),
+			Rip:    uint64(rip),
+			Rsp:    uint64(rsp),
+			Rax:    uint64(rax),
+			Rbx:    uint64(rbx),
+			Rcx:    uint64(rcx),
+			Rdx:    uint64(rdx),
+			Rsi:    uint64(rsi),
+			Rdi:    uint64(rdi),
+			Rbp:    uint64(rbp),
+			R8:     uint64(r8),
+			R9:     uint64(r9),
+			R10:    uint64(r10),
+			R11:    uint64(r11),
+			R12:    uint64(r12),
+			R13:    uint64(r13),
+			R14:    uint64(r14),
+			R15:    uint64(r15),
+			Eflags: uint64(eflags),
 		}
 	}
 }
@@ -304,5 +307,6 @@ func (self *CpuManager) PushContext(context interface{}) {
 		self.emu.RegWrite(uc.X86_REG_ESI, uint64(ctx.Esi))
 		self.emu.RegWrite(uc.X86_REG_EDI, uint64(ctx.Edi))
 		self.emu.RegWrite(uc.X86_REG_EBP, uint64(ctx.Ebp))
+		self.emu.RegWrite(uc.X86_REG_EFLAGS, uint64(ctx.Eflags))
 	}
 }

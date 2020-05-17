@@ -16,6 +16,7 @@ type Handle struct {
 	RegKey            *RegKey
 	Thread            *Thread
 	ResourceDataEntry *pefile.ResourceDataEntry
+	Snapshot          *Snapshot
 }
 
 func (handle *Handle) Close() {

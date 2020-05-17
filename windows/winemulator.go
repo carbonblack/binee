@@ -80,12 +80,14 @@ type WinEmulator struct {
 	nameToHook         map[string]*Hook
 	libFunctionAddress map[string]map[string]uint64
 	libAddressFunction map[string]map[uint64]string
+	libOrdinalFunction map[string]map[uint16]string
 	libRealLib         map[string]string //set up in loader in loadLibs
 	EntryPoint         uint64
 	NextLibAddress     uint64
 	MemRegions         *MemRegions
 	Handles            map[uint64]*Handle
 	LoadedModules      map[string]uint64
+	LdrIndex           int
 	Heap               *core.HeapManager
 	Registry           *Registry
 	CPU                *core.CpuManager
@@ -93,6 +95,7 @@ type WinEmulator struct {
 	Fls                [64]uint64
 	Opts               WinOptions
 	ResourcesRoot      pefile.ResourceDirectory
+	ProcessManager     *ProcessManager
 	// these commands are used to keep state during single step mode
 	LastCommand  string
 	Breakpoints  map[uint64]uint64
@@ -197,6 +200,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.LoadedModules = make(map[string]uint64)
 	emu.libFunctionAddress = make(map[string]map[string]uint64)
 	emu.libAddressFunction = make(map[string]map[uint64]string)
+	emu.libOrdinalFunction = make(map[string]map[uint16]string)
 	emu.libRealLib = make(map[string]string)
 	emu.Handles = make(map[uint64]*Handle)
 	//this is the first thread
@@ -212,6 +216,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.MemRegions.ImageSize = uint64(32 * 1024 * 1024)
 	emu.Seed = 1
 	emu.ResourcesRoot = pe.ResourceDirectoryRoot
+	emu.ProcessManager = InitializeProcessManager(true)
 
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
@@ -328,7 +333,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	if buf, err = ioutil.ReadFile(options.ConfigPath); err == nil {
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
-
+	emu.LdrIndex = 0
 	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
 
 	var mockRegistry *Registry
