@@ -171,23 +171,24 @@ type Registers64 struct {
 }
 
 func (self *Registers64) String() string {
-	ret := fmt.Sprintf("rip is 0x%016x", self.Rip)
+
+	ret := fmt.Sprintf("rip is 0x%016x\n", self.Rip)
 	ret += fmt.Sprintf("rsp is 0x%016x\n", self.Rsp)
-	ret += fmt.Sprintf("rax is 0x%016x", self.Rax)
+	ret += fmt.Sprintf("rax is 0x%016x\n", self.Rax)
 	ret += fmt.Sprintf("rbx is 0x%016x\n", self.Rbx)
-	ret += fmt.Sprintf("rcx is 0x%016x", self.Rcx)
+	ret += fmt.Sprintf("rcx is 0x%016x\n", self.Rcx)
 	ret += fmt.Sprintf("rdx is 0x%016x\n", self.Rdx)
-	ret += fmt.Sprintf("rsi is 0x%016x", self.Rsi)
+	ret += fmt.Sprintf("rsi is 0x%016x\n", self.Rsi)
 	ret += fmt.Sprintf("rdi is 0x%016x\n", self.Rdi)
-	ret += fmt.Sprintf("rbp is 0x%016x", self.Rbp)
-	ret += fmt.Sprintf("r8 is 0x%016x\n", self.R8)
-	ret += fmt.Sprintf("r9 is 0x%016x", self.R9)
+	ret += fmt.Sprintf("rbp is 0x%016x\n", self.Rbp)
+	ret += fmt.Sprintf("r8  is 0x%016x\n", self.R8)
+	ret += fmt.Sprintf("r9  is 0x%016x\n", self.R9)
 	ret += fmt.Sprintf("r10 is 0x%016x\n", self.R10)
-	ret += fmt.Sprintf("r11 is 0x%016x", self.R11)
+	ret += fmt.Sprintf("r11 is 0x%016x\n", self.R11)
 	ret += fmt.Sprintf("r12 is 0x%016x\n", self.R12)
-	ret += fmt.Sprintf("r13 is 0x%016x", self.R13)
+	ret += fmt.Sprintf("r13 is 0x%016x\n", self.R13)
 	ret += fmt.Sprintf("r14 is 0x%016x\n", self.R14)
-	ret += fmt.Sprintf("r15 is 0x%016x", self.R15)
+	ret += fmt.Sprintf("r15 is 0x%016x\n", self.R15)
 	return ret
 }
 

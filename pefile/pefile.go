@@ -483,7 +483,7 @@ func (pe *PeFile) readExports() error {
 	}
 
 	//get the section with exports data
-	section := pe.getSectionByRva(exportsRva)
+	section := pe.getSectionByRva(uint64(exportsRva))
 
 	if section == nil {
 		return nil
@@ -589,8 +589,7 @@ type ImportDirectory struct {
 }
 
 func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) error {
-
-	section := pe.getSectionByRva(importInfo.Offset)
+	section := pe.getSectionByRva(uint64(importInfo.Offset))
 	if section == nil {
 		return fmt.Errorf("error setting address for %s.%s to %x, section not found", importInfo.DllName, importInfo.FuncName, importInfo.Offset)
 	}
@@ -606,7 +605,7 @@ func (pe *PeFile) SetImportAddress(importInfo *ImportInfo, realAddr uint64) erro
 	} else {
 		buf := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buf, realAddr)
-		thunkAddress := uint16(importInfo.Offset) & 0xfff
+		thunkAddress := importInfo.Offset - section.VirtualAddress
 		for i := 0; i < 8; i++ {
 			section.Raw[int(thunkAddress)+i] = buf[i]
 		}
@@ -628,14 +627,14 @@ func (pe *PeFile) ImportedDlls() []string {
 	return dllNames
 }
 
-func (pe *PeFile) getSectionByRva(rva uint32) *Section {
+func (pe *PeFile) getSectionByRva(rva uint64) *Section {
 	var section *Section
 	//In the normal pe structure, headers is not a section, but some malwares may hide in and include from this.
-	if rva > 0 && rva < pe.HeadersAsSection.VirtualSize {
+	if rva > 0 && rva < uint64(pe.HeadersAsSection.VirtualSize) {
 		return pe.HeadersAsSection
 	}
 	for i := 0; i < int(pe.CoffHeader.NumberOfSections); i++ {
-		if rva >= pe.Sections[i].VirtualAddress && rva < pe.Sections[i].VirtualAddress+pe.Sections[i].Size {
+		if rva >= uint64(pe.Sections[i].VirtualAddress) && rva < uint64(pe.Sections[i].VirtualAddress+pe.Sections[i].Size) {
 			section = pe.Sections[i]
 		}
 	}
@@ -652,7 +651,7 @@ func (pe *PeFile) readImports() {
 	}
 
 	//get the section with imports data
-	section := pe.getSectionByRva(importsRva)
+	section := pe.getSectionByRva(uint64(importsRva))
 
 	if section == nil {
 		return
@@ -668,7 +667,7 @@ func (pe *PeFile) readImports() {
 
 	//loop over each dll import
 	for i := tableOffset; ; i += uint32(binary.Size(ImportDirectory{})) {
-		section = pe.getSectionByRva(importsRva)
+		section = pe.getSectionByRva(uint64(importsRva))
 		if _, err := r.Seek(int64(i), io.SeekStart); err != nil {
 			log.Fatal(err)
 		}
@@ -683,12 +682,12 @@ func (pe *PeFile) readImports() {
 			break
 		}
 
-		requiredSection := pe.getSectionByRva(importDirectory.NameRva)
+		requiredSection := pe.getSectionByRva(uint64(importDirectory.NameRva))
 		name := strings.ToLower(ReadString(requiredSection.Raw[importDirectory.NameRva-requiredSection.VirtualAddress:]))
 
 		if pe.PeType == Pe32 {
 			var thunk1 uint32
-			section = pe.getSectionByRva(importDirectory.ImportAddressTableRva)
+			section = pe.getSectionByRva(uint64(importDirectory.ImportAddressTableRva))
 			thunk2 := importDirectory.ImportAddressTableRva
 			importThunk := 0
 
@@ -719,7 +718,7 @@ func (pe *PeFile) readImports() {
 					thunk2 += 4
 				} else {
 					// might be in a different section
-					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
+					if sec := pe.getSectionByRva(uint64(thunk1) + 2); sec != nil {
 						v := thunk1 + 2 - sec.VirtualAddress
 						funcName := ReadString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, thunk2, 0})
@@ -731,7 +730,8 @@ func (pe *PeFile) readImports() {
 
 		} else {
 			var thunk1 uint64
-			var thunk2 uint64 = uint64(importDirectory.ImportAddressTableRva - section.VirtualAddress)
+			section = pe.getSectionByRva(uint64(importDirectory.ImportAddressTableRva))
+			thunk2 := importDirectory.ImportAddressTableRva
 
 			importThunk := 0
 			if importDirectory.ImportLookupTableRva > section.VirtualAddress {
@@ -740,7 +740,11 @@ func (pe *PeFile) readImports() {
 				importThunk = int(importDirectory.ImportAddressTableRva - section.VirtualAddress)
 			}
 
-			for ; ; importThunk += 4 {
+			for ; ; importThunk += 8 {
+				if importThunk+8 > len(section.Raw) {
+					break
+				}
+
 				// get first thunk
 				if thunk1 = binary.LittleEndian.Uint64(section.Raw[uint32(importThunk) : uint32(importThunk)+8]); thunk1 == 0 {
 					break
@@ -754,7 +758,7 @@ func (pe *PeFile) readImports() {
 
 				} else {
 					// might be in a different section
-					if sec := pe.getSectionByRva(uint32(thunk1) + 2); sec != nil {
+					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
 						v := uint32(thunk1) + 2 - sec.VirtualAddress
 						funcName := ReadString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint32(thunk2), 0})
@@ -853,7 +857,7 @@ func GetResourceType(resourceType uint32) string {
 }
 
 func (pe *PeFile) readDirectoryRecursively(rootRva uint32, currentDirectoryRva uint32, depth uint32) (ResourceDirectory, error) {
-	section := pe.getSectionByRva(currentDirectoryRva)
+	section := pe.getSectionByRva(uint64(currentDirectoryRva))
 	var ret ResourceDirectory
 	r := bytes.NewReader(section.Raw)
 	rdRaw := ResourceDirectoryRAW{}

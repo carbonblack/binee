@@ -26,7 +26,7 @@ Microsoft.**
 
 Please feel free to submit github issues or if you want to talk with us directly, come join is in slack
 
-[slack workspace](https://join.slack.com/t/cb-binee/shared_invite/enQtODAwMjM5NzU4MDY4LTE3ZjJkY2FiNmIwMjExOTcwZDAxMjllZjdhODExNDZiZGFkOTJkZTU4YzY0YzVmMTc0N2ExMmYzMzg5MjNhOWU)
+[slack workspace](https://join.slack.com/t/cb-binee/shared_invite/zt-e13fhpox-yq6ncXpX6hXR8vJ0p8PEvw)
 
 ## DEF CON 27 Materials
 
@@ -45,7 +45,8 @@ to be accessible from the mock file system. The default "root" mock file system
 is located in `os/win10_32/`. In order to allow for the malware to load up DLLs
 you will need to copy them into the appropriate location within the mock file
 system. Typically, these should be copied into,
-`os/win10_32/windows/system32/`. Once you have the required files in that
+`os/win10_32/windows/system32/`. Currently, only 32-bit DLL's pulled from a 32-bit 
+Windows installation are supported. Once you have the required files in that
 directory, you can move onto the compiling and running step.
 
 ## Compiling and running
@@ -166,9 +167,8 @@ root@6a6fe8c2b2a7:~/go/src/github.com/carbonblack/binee# go build && ./binee tes
  `./make.sh `  
  `./make.sh install`  
 
-4-Clone Binee   
-`cd Binee`  
-`go get`  
+4-Clone Binee and Build 
+`cd binee`   
 `go build`  
 
 

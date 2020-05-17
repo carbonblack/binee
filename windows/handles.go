@@ -11,6 +11,7 @@ import (
 type Handle struct {
 	Path              string
 	Access            int32
+	Pos               int64
 	File              *os.File
 	Info              os.FileInfo
 	RegKey            *RegKey
@@ -37,6 +38,19 @@ func (handle *Handle) Read(out_bytes []byte) (int, error) {
 		return handle.File.Read(out_bytes)
 	}
 	return 0, fmt.Errorf("Invalid handle, cannot read from handle")
+}
+
+func (handle *Handle) Seek(offset int64, whence int) (int64, error) {
+	if handle.File != nil {
+		ret, err := handle.File.Seek(offset, whence)
+		handle.Pos = ret
+		return ret, err
+	}
+	return 0, fmt.Errorf("Invalid handle, cannot seek")
+}
+
+func (handle *Handle) Tell() int64 {
+	return handle.Pos
 }
 
 func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {

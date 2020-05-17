@@ -1,7 +1,5 @@
 package windows
 
-import "github.com/carbonblack/binee/util"
-
 func WdmHooks(emu *WinEmulator) {
 	emu.AddHook("", "InterlockedExchange", &Hook{
 		Parameters: []string{"Target", "Value"},
@@ -10,17 +8,7 @@ func WdmHooks(emu *WinEmulator) {
 	emu.AddHook("", "DbgPrint", &Hook{
 		Parameters: []string{"a:format"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			formatStringAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 1)
-			formatString := util.ReadASCII(emu.Uc, formatStringAddr, 0)
-			startVarArgsAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 3)
-
-			numFormatters := util.ParseFormatter(formatString)
-
-			// This updates values and args
-			in.VaArgsParse(startVarArgsAddr, len(numFormatters))
-
-			// This updates parameters
-			in.FmtToParameters(numFormatters)
+			_ = in.vfprintfHelper(0)
 
 			return SkipFunctionCdecl(true, STATUS_SUCCESS)(emu, in)
 		},

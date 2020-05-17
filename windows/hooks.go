@@ -115,11 +115,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 				if emu.Verbosity == 2 {
 					fmt.Println("---")
 					fmt.Println(emu.CPU.ReadRegisters())
-
-					if emu.UcMode == uc.MODE_32 {
-						emu.CPU.PrintStack(10)
-					} else {
-					}
+					emu.CPU.PrintStack(10)
 					fmt.Println(instruction.StringHook())
 					fmt.Println(instruction)
 				} else if emu.Verbosity == 1 {
@@ -346,6 +342,10 @@ func (i *Instruction) StringHook() string {
 			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
 		case "s:":
 			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		case "d:":
+			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], uint32(i.Hook.Values[j].(uint64)))
+		case "l:":
+			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], i.Hook.Values[j])
 		default:
 			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
 		}
@@ -359,9 +359,41 @@ func (i *Instruction) StringHook() string {
 	return ret
 }
 
+func (in *Instruction) vfprintfHelper(offset int) string {
+	var formatStringAddr uint64
+	var vaArgsAddr uint64
+	if in.emu.PtrSize == 4 {
+		formatStringAddr = in.Args[offset+1]
+		vaArgsAddr = util.GetStackEntryByIndex(in.emu.Uc, in.emu.UcMode, offset+4)
+	} else {
+		formatStringAddr = in.Args[offset]
+		vaArgsAddr = util.GetStackEntryByIndex(in.emu.Uc, in.emu.UcMode, offset+3)
+	}
+
+	// grab the format string
+	formatString := util.ReadASCII(in.emu.Uc, formatStringAddr, 0)
+
+	// parse the formatters (into a slice)
+	formatters := util.ParseFormatter(formatString)
+
+	// This updates values and args
+	args := in.VaArgsParse(vaArgsAddr, formatters)
+
+	// evaluate the formatted string
+	// important because the printf functions need the length of the final string
+	// but %p needs to be replaced by %x to evaluate properly
+	temp := strings.ReplaceAll(formatString, "%p", "%x")
+	fstring := fmt.Sprintf(temp, args...)
+
+	// This updates parameters
+	in.FmtToParameters(formatters)
+	return fstring
+}
+
 // VaArgsParse will take address to first value, number of values
 // and populate instruction args and hook values
-func (self *Instruction) VaArgsParse(addr uint64, n int) []interface{} {
+func (self *Instruction) VaArgsParse(addr uint64, formatters []string) []interface{} {
+	n := len(formatters)
 	res := make([]interface{}, n)
 
 	if self.emu.UcMode == uc.MODE_32 {
@@ -374,8 +406,36 @@ func (self *Instruction) VaArgsParse(addr uint64, n int) []interface{} {
 
 			self.Hook.Values = append(self.Hook.Values, ptr_num)
 			self.Args = append(self.Args, ptr_num)
+
+			f := formatters[i]
+			if f == "s" {
+				res[i] = util.ReadASCII(self.emu.Uc, ptr_num, 0)
+			} else {
+				res[i] = ptr_num
+			}
+		}
+	} else {
+		for i := 0; i < n; i++ {
+			// Pull a pointer off the stack
+			ptr, _ := self.emu.Uc.MemRead(addr+uint64(i)*self.emu.PtrSize, self.emu.PtrSize)
+
+			// Convert to a uint64
+			ptr_num := binary.LittleEndian.Uint64(ptr)
+
+			self.Hook.Values = append(self.Hook.Values, ptr_num)
+			self.Args = append(self.Args, ptr_num)
+
+			f := formatters[i]
+			if f == "d" {
+				res[i] = ptr_num & 0xffffffff
+			} else if f == "s" {
+				res[i] = util.ReadASCII(self.emu.Uc, ptr_num, 0)
+			} else {
+				res[i] = ptr_num
+			}
 		}
 	}
+
 	return res
 }
 
@@ -389,7 +449,10 @@ func (self *Instruction) FmtToParameters(fmts []string) {
 
 		case "S":
 			param = fmt.Sprintf("w:p%d", i)
-
+		case "d":
+			param = fmt.Sprintf("d:p%d", i)
+		case "l":
+			param = fmt.Sprintf("l:p%d", i)
 		default:
 			param = fmt.Sprintf("p%d", i)
 		}
@@ -578,9 +641,14 @@ func SkipFunctionStdCall(set_return bool, ret uint64) func(emu *WinEmulator, ins
 			// TODO, fix stack adjustment to reflect parameters passed in registers
 			rsp, _ := emu.Uc.RegRead(uc.X86_REG_RSP)
 			ripBytes, _ := emu.Uc.MemRead(rsp, 8)
-			rip := uint64(binary.LittleEndian.Uint32(ripBytes))
+			rip := binary.LittleEndian.Uint64(ripBytes)
 			emu.Uc.RegWrite(uc.X86_REG_RIP, rip)
-			emu.Uc.RegWrite(uc.X86_REG_RSP, rsp+4+uint64(4*len(instruction.Hook.Parameters)))
+			numParams := len(instruction.Hook.Parameters) - 4
+			if numParams < 0 {
+				numParams = 0
+			}
+			//emu.Uc.RegWrite(uc.X86_REG_RSP, rsp+4+uint64(4*len(instruction.Hook.Parameters)))
+			emu.Uc.RegWrite(uc.X86_REG_RSP, rsp+8+uint64(8*numParams))
 		}
 
 		return true

@@ -230,10 +230,11 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 
 	} else {
 		emu.PtrSize = 8
-		emu.MemRegions.ProcInfoAddress = 0x7ffdf000
 		emu.MemRegions.GdtAddress = 0xc0000000
 		emu.MemRegions.StackAddress = 0xfee792a000
 		emu.MemRegions.HeapAddress = 0xffe792a000
+		emu.MemRegions.ProcInfoAddress = 0x7ffdf000
+		emu.MemRegions.TibAddress = 0x7efdd000
 		emu.MemRegions.LibAddress = 0x7ff5ce4e0000
 		emu.NextLibAddress = emu.MemRegions.LibAddress
 	}
