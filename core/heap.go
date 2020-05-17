@@ -149,7 +149,7 @@ func (self *HeapManager) getHeapBlock(addr uint64) (*HeapEntry, error) {
 	return nil, fmt.Errorf("allocated region not found: 0x%x", addr)
 }
 
-// given a previously allocated memory block, copy contents to new block and increase size
+// Realloc doesn't copy the old contents, it should be done in the hook itself, since Heap has no access to unicorn.
 func (self *HeapManager) ReAlloc(addr uint64, newsize uint64) (uint64, uint64) {
 	heap, err := self.getHeapBlock(addr)
 	if err != nil {

@@ -286,4 +286,21 @@ func NtdllHooks(emu *WinEmulator) {
 		Parameters: []string{"lpCriticalSection"},
 	})
 
+	emu.AddHook("", "RtlReAllocateHeap", &Hook{
+		Parameters: []string{"HeapHandle", "Flags", "MemoryPointer", "Size"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			oldAddr := in.Args[2]
+			oldSize := emu.Heap.Size(oldAddr)
+			newAddr, newSize := emu.Heap.ReAlloc(oldAddr, oldSize)
+			actualSize := newSize
+			if newSize > oldSize {
+				actualSize = oldSize
+			}
+			oldMemory := make([]byte, actualSize)
+			emu.Uc.MemReadInto(oldMemory, oldAddr)
+			emu.Uc.MemWrite(newAddr, oldMemory)
+			return SkipFunctionStdCall(true, newAddr)(emu, in)
+		},
+	})
+
 }
