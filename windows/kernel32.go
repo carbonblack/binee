@@ -807,7 +807,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "_CorExeMain", &Hook{Parameters: []string{}})
 	emu.AddHook("", "GetCPHashNode", &Hook{Parameters: []string{}})
 	emu.AddHook("", "GetCPFileNameFromRegistry", &Hook{Parameters: []string{"CodePage", "w:FileName", "FileNameSize"}})
-	emu.AddHook("", "LocalFree", &Hook{Parameters: []string{"hMem"}})
+
 	emu.AddHook("", "MultiByteToWideChar", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "a:lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {

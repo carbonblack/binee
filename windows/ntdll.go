@@ -278,4 +278,12 @@ func NtdllHooks(emu *WinEmulator) {
 			return true
 		},
 	})
+
+	emu.AddHook("", "RtlInitializeCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+	})
+	emu.AddHook("", "RtlDeleteCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+	})
+
 }
