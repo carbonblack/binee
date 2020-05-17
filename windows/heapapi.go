@@ -25,6 +25,7 @@ func HeapapiHooks(emu *WinEmulator) {
 			success := emu.Heap.Free(in.Args[2])
 			return SkipFunctionStdCall(true, success)(emu, in)
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "HeapSetInformation", &Hook{
 		Parameters: []string{"HeapHandle", "HeapInformationClass", "HeapInformation", "HeapInformationLength"},

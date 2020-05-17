@@ -97,41 +97,43 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		}
 
 		instruction.Hook.Return = returns
+		if !instruction.Hook.NoLog {
 
-		if emu.logType == LogTypeJSON {
-			if buf, err := json.Marshal(instruction); err == nil {
-				if instruction.Hook.Implemented == true {
-					fmt.Println(string(buf))
-				}
-			} else {
-				fmt.Printf("{\"error\":\"%s\"},", err)
-			}
-		} else if emu.logType == LogTypeSlice {
-			if instruction.Hook.Implemented {
-				emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
-			}
-		} else {
-			if emu.Verbosity == 2 {
-				fmt.Println("---")
-				fmt.Println(emu.CPU.ReadRegisters())
-
-				if emu.UcMode == uc.MODE_32 {
-					emu.CPU.PrintStack(10)
+			if emu.logType == LogTypeJSON {
+				if buf, err := json.Marshal(instruction); err == nil {
+					if instruction.Hook.Implemented == true {
+						fmt.Println(string(buf))
+					}
 				} else {
+					fmt.Printf("{\"error\":\"%s\"},", err)
 				}
-				fmt.Println(instruction.StringHook())
-				fmt.Println(instruction)
-			} else if emu.Verbosity == 1 {
-				if s := instruction.StringHook(); s != "" {
-					fmt.Println(s)
+			} else if emu.logType == LogTypeSlice {
+				if instruction.Hook.Implemented {
+					emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
 				}
-				fmt.Println(instruction)
 			} else {
-				if instruction.Hook.Implemented == true {
-					fmt.Println(instruction.StringHook())
-				}
-			}
+				if emu.Verbosity == 2 {
+					fmt.Println("---")
+					fmt.Println(emu.CPU.ReadRegisters())
 
+					if emu.UcMode == uc.MODE_32 {
+						emu.CPU.PrintStack(10)
+					} else {
+					}
+					fmt.Println(instruction.StringHook())
+					fmt.Println(instruction)
+				} else if emu.Verbosity == 1 {
+					if s := instruction.StringHook(); s != "" {
+						fmt.Println(s)
+					}
+					fmt.Println(instruction)
+				} else {
+					if instruction.Hook.Implemented == true {
+						fmt.Println(instruction.StringHook())
+					}
+				}
+
+			}
 		}
 
 		if doContinue == false {
@@ -197,6 +199,7 @@ type Hook struct {
 	Return      uint64
 	HookStatus  string
 	Lib         string
+	NoLog       bool
 }
 
 type Instruction struct {
@@ -444,6 +447,7 @@ func NopHook() *Hook {
 		0x0,
 		"",
 		"",
+		false,
 	}
 }
 
@@ -493,7 +497,7 @@ func (emu *WinEmulator) BuildInstruction(addr uint64, size uint32) *Instruction 
 				instruction.Hook.Name = function
 			}
 			instruction.ParseValues()
-
+			instruction.Hook.NoLog = hook.NoLog
 		} else {
 			// function does not have a hook defined, add name to NOP hook
 			instruction.Hook = NopHook()
