@@ -14,11 +14,11 @@ RUN \
   git clone https://github.com/unicorn-engine/unicorn && \
   cd unicorn && \
   UNICORN_ARCHS="x86" ./make.sh && \
-  ./make.sh install
+  UNICORN_ARCHS="x86" ./make.sh install
   
 RUN \
-  wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz && \
-  tar -C /usr/local -xzf go1.13.4.linux-amd64.tar.gz && \
+  wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz && \
+  tar -C /usr/local -xzf go1.14.4.linux-amd64.tar.gz && \
   mkdir -p /bineedev/go/src/github.com/carbonblack/binee
 
 ENV HOME /bineedev
