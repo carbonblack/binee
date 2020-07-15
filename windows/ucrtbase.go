@@ -141,7 +141,7 @@ func fputs(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruc
 }
 
 func UcrtBase32Hooks(emu *WinEmulator) {
-	emu.AddHook("", "__acrt_iob_func", &Hook{Parameters: []string{}})
+	emu.AddHook("", "__acrt_iob_func", &Hook{Parameters: []string{}, NoLog: true})
 	emu.AddHook("", "_controlfp", &Hook{
 		Parameters: []string{"unNew", "unMask"},
 		Fn:         SkipFunctionCdecl(true, 0),
@@ -161,6 +161,29 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			fstring := in.vfprintfHelper(3)
 			emu.Uc.MemWrite(in.Args[1], []byte(fstring))
 			return SkipFunctionCdecl(true, uint64(len(fstring)))(emu, in)
+		},
+	})
+
+	emu.AddHook("", "__stdio_common_vfwprintf", &Hook{
+		Parameters: []string{"stream", "_:", "_:", "w:format"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			formatStringAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 4)
+			formatString := util.ReadWideChar(emu.Uc, formatStringAddr, 0)
+			startVarArgsAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 6)
+			numFormatters := util.ParseFormatter(formatString)
+
+			// This updates values and args
+			in.VaArgsParse(startVarArgsAddr, numFormatters)
+			//vfwprintf actually treats %s as wide string
+			for i, v := range numFormatters {
+				if v == "s" {
+					numFormatters[i] = "S"
+				}
+			}
+			// This updates parameters
+			in.FmtToParameters(numFormatters)
+
+			return SkipFunctionCdecl(false, 0)(emu, in)
 		},
 	})
 
