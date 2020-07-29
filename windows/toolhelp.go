@@ -110,6 +110,9 @@ func process32First(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinE
 	snapshot.ProcessListIndex = 1
 	returnAddress := in.Args[1]
 	var process interface{}
+	if len(snapshot.ProcessList) == 0 {
+		return SkipFunctionStdCall(true, 0)
+	}
 	if wide {
 		process = snapshot.ProcessList[0].toWide()
 	} else {
