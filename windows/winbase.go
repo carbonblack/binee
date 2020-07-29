@@ -1,6 +1,7 @@
 package windows
 
 import (
+	"encoding/binary"
 	"github.com/carbonblack/binee/pefile"
 	"strconv"
 	"strings"
@@ -120,6 +121,60 @@ func getCurrentDirectory(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, uint64(len(workingDir)))(emu, in)
 }
 
+func getUsername(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	sizeRaw := make([]byte, 4)
+	err := emu.Uc.MemReadInto(sizeRaw, in.Args[1])
+	if err != nil {
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	size := binary.LittleEndian.Uint32(sizeRaw)
+
+	//Writes the size to second parameter anyways.
+	rawLength := make([]byte, 4)
+	binary.LittleEndian.PutUint32(rawLength, uint32(len(emu.Opts.User)+1))
+	err = emu.Uc.MemWrite(in.Args[1], rawLength)
+	if len(emu.Opts.User)+1 > int(size) {
+		emu.setLastError(ERROR_INSUFFICIENT_BUFFER)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	if wide {
+		wideString := util.ASCIIToWinWChar(emu.Opts.User)
+		wideString = append(wideString, 0, 0)
+		emu.Uc.MemWrite(in.Args[0], wideString)
+	} else {
+		emu.Uc.MemWrite(in.Args[0], append([]byte(emu.Opts.User), 0))
+	}
+	return SkipFunctionStdCall(true, 1)(emu, in)
+}
+
+func getComputerName(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	sizeRaw := make([]byte, 4)
+	err := emu.Uc.MemReadInto(sizeRaw, in.Args[1])
+	if err != nil {
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	size := binary.LittleEndian.Uint32(sizeRaw)
+
+	//Writes the size to second parameter anyways.
+	rawLength := make([]byte, 4)
+	binary.LittleEndian.PutUint32(rawLength, uint32(len(emu.Opts.ComputerName)+1))
+	err = emu.Uc.MemWrite(in.Args[1], rawLength)
+	if len(emu.Opts.ComputerName)+1 > int(size) {
+		emu.setLastError(ERROR_INSUFFICIENT_BUFFER)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	if wide {
+		wideString := util.ASCIIToWinWChar(emu.Opts.ComputerName)
+		wideString = append(wideString, 0, 0)
+		emu.Uc.MemWrite(in.Args[0], wideString)
+	} else {
+		emu.Uc.MemWrite(in.Args[0], append([]byte(emu.Opts.ComputerName), 0))
+	}
+	return SkipFunctionStdCall(true, 1)(emu, in)
+}
+
 func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "AddAtomA", &Hook{
 		Parameters: []string{"a:lpString"},
@@ -201,6 +256,7 @@ func WinbaseHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "lstrcpyA", &Hook{
 		Parameters: []string{"a:lpString1", "a:lpString2"},
+		NoLog:      true,
 	})
 	emu.AddHook("", "lstrcpynA", &Hook{
 		Parameters: []string{"lpString1", "a:lpString1", "iMaxLength"},
@@ -267,6 +323,29 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetCurrentDirectoryW", &Hook{
 		Parameters: []string{"nBufferLength", "lpBuffer"},
 		Fn:         getCurrentDirectory,
+	})
+
+	emu.AddHook("", "SetThreadExecutionState", &Hook{
+		Parameters: []string{"esFlags"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "GetUserNameA", &Hook{
+		Parameters: []string{"lpBuffer", "pcbBuffer"},
+		Fn:         getUsername,
+	})
+	emu.AddHook("", "GetUserNameW", &Hook{
+		Parameters: []string{"lpBuffer", "pcbBuffer"},
+		Fn:         getUsername,
+	})
+
+	emu.AddHook("", "GetComputerNameA", &Hook{
+		Parameters: []string{"lpBuffer", "pcbBuffer"},
+		Fn:         getComputerName,
+	})
+	emu.AddHook("", "GetComputerNameW", &Hook{
+		Parameters: []string{"lpBuffer", "pcbBuffer"},
+		Fn:         getComputerName,
 	})
 
 }

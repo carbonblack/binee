@@ -327,14 +327,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "GetCommandLineW", &Hook{
-		Parameters: []string{},
-		Fn:         SkipFunctionStdCall(true, emu.Argv),
-	})
-	emu.AddHook("", "GetCommandLineA", &Hook{
-		Parameters: []string{},
-		Fn:         SkipFunctionStdCall(true, emu.Argv),
-	})
+
 	emu.AddHook("", "GetConsoleMode", &Hook{
 		Parameters: []string{"hConsoleHandle", "lpMode"},
 		Fn:         SkipFunctionStdCall(true, 0x1),

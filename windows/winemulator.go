@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
@@ -194,8 +195,8 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	}
 	emu.Binary = path
 	emu.Verbosity = options.VerboseLevel
-	emu.Args = args
-	emu.Argc = uint64(len(args))
+	emu.Args = append([]string{filepath.Base(path)}, args...)
+	emu.Argc = uint64(len(emu.Args))
 	emu.nameToHook = make(map[string]*Hook)
 	emu.LoadedModules = make(map[string]uint64)
 	emu.libFunctionAddress = make(map[string]map[string]uint64)
