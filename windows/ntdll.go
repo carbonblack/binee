@@ -151,6 +151,7 @@ func NtdllHooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, emu.Heap.Malloc(in.Args[2]))(emu, in)
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "RtlAcquirePebLock", &Hook{Parameters: []string{}})
 	emu.AddHook("", "RtlAcquireSRWLockExclusive", &Hook{
@@ -303,4 +304,40 @@ func NtdllHooks(emu *WinEmulator) {
 		},
 	})
 
+	emu.AddHook("", "RtlEncodePointer", &Hook{
+		Parameters: []string{"ptr"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[0])(emu, in)
+		},
+		NoLog: true,
+	})
+	emu.AddHook("", "RtlDecodePointer", &Hook{
+		Parameters: []string{"ptr"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[0])(emu, in)
+		},
+		NoLog: true,
+	})
+
+	emu.AddHook("", "RtlEnterCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(false, 0),
+		NoLog:      true,
+	})
+	emu.AddHook("", "RtlLeaveCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(false, 0),
+		NoLog:      true,
+	})
+	emu.AddHook("", "RtlSizeHeap", &Hook{
+		Parameters: []string{"heap", "flags", "ptr"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			size := emu.Heap.Size(in.Args[2])
+			if size != 0 {
+				return SkipFunctionStdCall(true, size)(emu, in)
+
+			}
+			return SkipFunctionStdCall(true, 0xFFFFFFFF)(emu, in)
+		},
+	})
 }

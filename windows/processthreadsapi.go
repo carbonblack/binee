@@ -89,4 +89,37 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"hThread", "dwExitCode"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
+
+	emu.AddHook("", "CreateRemoteThread", &Hook{
+		Parameters: []string{"hProcess", "lpThreadAttributes", "dwStackSize", "lpStartAddress", "lpParameter", "dwCreationFlags", "lpThreadId"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "ResumeThread", &Hook{
+		Parameters: []string{"hThread"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+	emu.AddHook("", "SuspendThread", &Hook{
+		Parameters: []string{"hThread"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+	emu.AddHook("", "SetThreadContext", &Hook{
+		Parameters: []string{"hThread", "lpContext"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
+	emu.AddHook("", "QueueUserAPC", &Hook{
+		Parameters: []string{"pfnAPC", "hThread", "dwData"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
+	emu.AddHook("", "NtQueueApcThread", &Hook{
+		Parameters: []string{"threadHandle", "ApcRoutine", "ApcRoutineContxt", "ApcStatusBlock", "ApcReserved"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
+	emu.AddHook("", "NtCreateProcessEx", &Hook{
+		Parameters: []string{"ProcessHandle", "DesiredAccess", "oa", "ParentProcess", "InheritObjectTable", "SectionHandle", "DebugPort", "ExceptionPort", "arg9"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
 }
