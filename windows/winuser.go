@@ -193,5 +193,62 @@ func WinuserHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 1)(emu, in)
 		},
 	})
+	emu.AddHook("", "LoadBitmapA", &Hook{
+		Parameters: []string{"hInstance", "a:lpBitmapName"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "LoadBitmapW", &Hook{
+		Parameters: []string{"hInstance", "w:lpBitmapName"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
 
+	emu.AddHook("", "RegisterClassExA", &Hook{
+		Parameters: []string{"arg1"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "CreateWindowExA", &Hook{
+		Parameters: []string{"dwExStyle", "a:lpClassName", "a:lpWindowName", "dwStyle", "X", "Y", "nWidth", "nHeight", "hWndParent", "hMenu", "hInstance", "lParam"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "UpdateWindow", &Hook{
+		Parameters: []string{"HWND"},
+		Fn:         SkipFunctionStdCall(true, 0x13),
+	})
+
+	emu.AddHook("", "GetMessageA", &Hook{
+		Parameters: []string{"lpMsg", "hWnd", "wMsgFilterMin", "wMsgFilterMax"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "GetWindowLongA", &Hook{
+		Parameters: []string{"hWnd", "nIndex"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "GetWindowLongW", &Hook{
+		Parameters: []string{"hWnd", "nIndex"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "GetWindowLongA", &Hook{
+		Parameters: []string{"hWnd", "nIndex"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "GetWindowLongW", &Hook{
+		Parameters: []string{"hWnd", "nIndex"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "SetWindowLongA", &Hook{
+		Parameters: []string{"hWnd", "nIndex", "dwNewLong"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "SetWindowLongW", &Hook{
+		Parameters: []string{"hWnd", "nIndex", "dwNewLong"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "SendNotifyMessageA", &Hook{
+		Parameters: []string{"hWnd", "Msg", "wParam", "lParam"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
 }
