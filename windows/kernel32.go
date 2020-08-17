@@ -415,7 +415,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "GetModuleHandleExW", &Hook{
-		Parameters: []string{"dwFlags", "a:lpModuleName", "phModule"},
+		Parameters: []string{"dwFlags", "w:lpModuleName", "phModule"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, getModuleHandleEx(emu, in, true))(emu, in)
 		},

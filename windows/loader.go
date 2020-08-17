@@ -738,6 +738,10 @@ func (emu *WinEmulator) initPEB(pe *pefile.PeFile) uint64 {
 		peb.OsMajorVersion = int32(emu.Opts.OsMajorVersion)
 		peb.OsMinorVersion = int32(emu.Opts.OsMinorVersion)
 		peb.ImageBaseAddress = uint32(pe.ImageBase())
+		imagePathName := UnicodeString32{}
+		cmdLine := UnicodeString32{} //to be filled later
+		upp := RtlUserProcessParameters32{CommandLine: cmdLine, ImagePathName: imagePathName}
+		peb.ProcessParameters = uint32(emu.Heap.Malloc(uint64(binary.Size(upp))))
 		//peb.ReadOnlySharedMemoryBase = uint32(emu.Heap.Malloc(4096))
 		//peb.ReadOnlyStaticServerData = peb.ReadOnlySharedMemoryBase + 0x4b0
 		//peb.CsrServerReadOnlySharedMemoryBase = emu.Heap.Malloc(4096)

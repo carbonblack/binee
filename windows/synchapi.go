@@ -35,4 +35,11 @@ func SyncapiHooks(emu *WinEmulator) {
 		Parameters: []string{"SRWLock"},
 		Fn:         SkipFunctionStdCall(false, 0x0),
 	})
+	emu.AddHook("", "SleepEx", &Hook{
+		Parameters: []string{"dwMilliSeconds", "bAlertable"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			emu.Ticks += in.Args[0]
+			return SkipFunctionStdCall(false, 0x0)(emu, in)
+		},
+	})
 }

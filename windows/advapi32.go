@@ -49,4 +49,8 @@ func AdvApi32Hooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x1)(emu, in)
 		},
 	})
+	emu.AddHook("", "AppPolicyGetProcessTerminationMethod", &Hook{
+		Parameters: []string{"processToken", "policy"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
 }
