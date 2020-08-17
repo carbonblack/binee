@@ -9,6 +9,8 @@ import (
 type ProcessManager struct {
 	numberOfProcesses uint64
 	processList       []Process
+	processMap        map[uint32]Process
+	currentPid        uint32
 }
 type Process struct {
 	dwSize              uint32
@@ -26,6 +28,8 @@ type Process struct {
 
 func InitializeProcessManager(addStub bool) *ProcessManager {
 	newProcessManager := &ProcessManager{numberOfProcesses: 0}
+	newProcessManager.processMap = make(map[uint32]Process)
+	newProcessManager.currentPid = 0
 	if addStub {
 		newProcessManager.addStubProcesses()
 	}
@@ -35,9 +39,6 @@ func InitializeProcessManager(addStub bool) *ProcessManager {
 func (p *ProcessManager) addStubProcesses() {
 	stub := make(map[string]interface{})
 	//This data is extracted from a windows 10-64bit os.
-	stub["szExeFile"] = "r3billions"
-	p.startProcess(stub)
-	stub = make(map[string]interface{})
 	stub["szExeFile"] = "[System Process]"
 	stub["cntThreads"] = uint32(0)
 	stub["th32ParentProcessID"] = uint32(2)
@@ -764,26 +765,32 @@ func (p *ProcessManager) getProcessEntries() []ProcessEntry {
 	}
 	return processEntries
 }
-func (p *ProcessManager) terminateProcess(index int) bool {
-	index -= 1
-	succ := false
+func (p *ProcessManager) terminateProcess(pid uint32) bool {
+	status := false
+	index := p.findProcess(pid)
+	if index == -1 {
+		return status
+	}
+	delete(p.processMap, pid)
 	if index >= 0 && uint64(index) < p.numberOfProcesses {
 		p.processList = append(p.processList[0:index], p.processList[index+1:]...)
 		p.numberOfProcesses -= 1
-		succ = true
+		status = true
 	}
-	return succ
+	return status
 }
-func (p *ProcessManager) openProcess(processID uint32) int {
+func (p *ProcessManager) findProcess(processID uint32) int {
 	for i, proc := range p.processList {
 		if proc.the32ProcessID == processID {
-			return i + 1
+			return i
 		}
 	}
 	return -1
 }
+
 func (p *ProcessManager) startProcess(parameters map[string]interface{}) bool {
 	newProcess := Process{dwSize: uint32(unsafe.Sizeof(ProcessEntry{})), cntUsage: 0, th32DefaultHeapID: 0, th32ModuleID: 0, dwFlags: 0}
+
 	for parameter, value := range parameters {
 		//Any new parameter should be added here with no headache of changing the function everywhere.
 		switch parameter {
@@ -827,6 +834,17 @@ func (p *ProcessManager) startProcess(parameters map[string]interface{}) bool {
 		}
 
 	}
+	for i := p.currentPid; i != p.currentPid-1; i += 1 { //check if we reached again meaning there is no available number.
+		if i == 65000 { //according to https://techcommunity.microsoft.com/t5/windows-blog-archive/pushing-the-limits-of-windows-processes-and-threads/ba-p/723824
+			i = 0 //Maximum number of process is around this number.
+		}
+		if _, exists := p.processMap[i]; !exists {
+			p.currentPid = i
+			break
+		}
+	}
+	newProcess.the32ProcessID = p.currentPid
+	p.processMap[p.currentPid] = newProcess
 	p.numberOfProcesses++
 	p.processList = append(p.processList, newProcess)
 	return true

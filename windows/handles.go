@@ -18,6 +18,7 @@ type Handle struct {
 	Thread            *Thread
 	ResourceDataEntry *pefile.ResourceDataEntry
 	Snapshot          *Snapshot
+	Process           *Process
 }
 
 func (handle *Handle) Close() {

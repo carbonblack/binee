@@ -22,11 +22,17 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "OpenProcess", &Hook{
 		Parameters: []string{"dwDesiredAccess", "bInheritHandle", "dwProcessId"},
 		Fn: func(emulator *WinEmulator, in *Instruction) bool {
-			procIndex := emu.ProcessManager.openProcess(uint32(in.Args[2]))
-			if procIndex == -1 {
+			procID := in.Args[2]
+			if _, ok := emu.ProcessManager.processMap[uint32(procID)]; !ok {
 				return SkipFunctionStdCall(true, 0)(emu, in)
 			}
-			return SkipFunctionStdCall(true, uint64(procIndex))(emu, in)
+			process := emu.ProcessManager.processMap[uint32(procID)]
+			procHandle := &Handle{
+				Process: &process,
+			}
+			handleAddr := emu.Heap.Malloc(4)
+			emu.Handles[handleAddr] = procHandle
+			return SkipFunctionStdCall(true, handleAddr)(emu, in)
 		},
 	})
 	emu.AddHook("", "TerminateProcess", &Hook{
@@ -35,7 +41,14 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 			if in.Args[0] == 0xffffffff {
 				return false
 			}
-			success := emu.ProcessManager.terminateProcess(int(in.Args[0]))
+			if _, ok := emu.Handles[in.Args[0]]; !ok {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			if emu.Handles[in.Args[0]].Process == nil {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			process := emu.Handles[in.Args[0]].Process
+			success := emu.ProcessManager.terminateProcess(process.the32ProcessID)
 			if success {
 				return SkipFunctionStdCall(true, 0x1337)(emu, in)
 			} else {
