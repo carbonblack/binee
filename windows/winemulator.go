@@ -101,6 +101,7 @@ type WinEmulator struct {
 	LastCommand  string
 	Breakpoints  map[uint64]uint64
 	AutoContinue bool
+	FactFactory  *FactFactory
 }
 
 // AddHook makes a new function hook available to the emulated process
@@ -218,7 +219,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Seed = 1
 	emu.ResourcesRoot = pe.ResourceDirectoryRoot
 	emu.ProcessManager = InitializeProcessManager(true)
-
+	emu.FactFactory = InitializeFactsFactory()
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
 		emu.MemRegions.GdtAddress = 0xc0000000
