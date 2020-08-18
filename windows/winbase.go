@@ -358,4 +358,15 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, S_OK),
 	})
 
+	emu.AddHook("", "ZwUnmapViewOfSection", &Hook{
+		Parameters: []string{"ProcessHandle", "BaseAddress"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "ZwMapViewOfSection", &Hook{
+		Parameters: []string{"SectionHandle", "ProcessHandle", "BaseAddress", "ZeroBits", "CommitSize", "SectionOffset", "ViewSize",
+			"InheritDisposition", "AllocationType", "Win32Protect"},
+		Fn: SkipFunctionStdCall(true, 0),
+	})
+
 }

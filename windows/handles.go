@@ -88,3 +88,14 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 
 	return &fd, err
 }
+
+func (emu *WinEmulator) getProcessID(handle uint64) (uint32, error) {
+	if _, ok := emu.Handles[handle]; !ok {
+		return 0, fmt.Errorf("handle %x not found", handle)
+	}
+	if emu.Handles[handle].Process == nil {
+		return 0, fmt.Errorf("handle %x is not a process", handle)
+	}
+	return emu.Handles[handle].Process.the32ProcessID, nil
+
+}

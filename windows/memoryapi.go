@@ -55,14 +55,19 @@ func writeProcessMemory(emu *WinEmulator, in *Instruction) bool {
 	lpBuffer := in.Args[2]
 	size := in.Args[3]
 	bytesWritten := in.Args[4]
+	//check if same process
 	if emu.PtrSize == 4 {
-		hProcess = uint64(int32(hProcess))
+		if hProcess == 0xFFFFFFFF {
+			buffer, _ := emu.Uc.MemRead(lpBuffer, size)
+			emu.Uc.MemWrite(lpBaseAddress, buffer)
+		}
+	} else {
+		if hProcess == 0xFFFFFFFFFFFFFFFF {
+			buffer, _ := emu.Uc.MemRead(lpBuffer, size)
+			emu.Uc.MemWrite(lpBaseAddress, buffer)
+		}
 	}
-	if hProcess == math.MaxUint64 {
-		buffer, _ := emu.Uc.MemRead(lpBuffer, size)
-		emu.Uc.MemWrite(lpBaseAddress, buffer)
-	}
-	if hProcess > uint64(len(emu.ProcessManager.processList)) {
+	if _, ok := emu.Handles[hProcess]; !ok {
 		emu.setLastError(ERROR_INVALID_HANDLE)
 		return SkipFunctionStdCall(true, 0)(emu, in) //Failed
 	}
@@ -76,7 +81,7 @@ func writeProcessMemory(emu *WinEmulator, in *Instruction) bool {
 		binary.LittleEndian.PutUint64(buf, size)
 		emu.Uc.MemWrite(bytesWritten, buf)
 	}
-	return SkipFunctionStdCall(true, 0x1337)(emu, in)
+	return SkipFunctionStdCall(true, 0x1)(emu, in)
 }
 
 func MemoryApiHooks(emu *WinEmulator) {
@@ -105,11 +110,20 @@ func MemoryApiHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "MapViewOfFile", &Hook{
 		Parameters: []string{"hFileMappingObject", "dwDesiredAccess", "dwFileOffsetHigh", "dwFileOffsetLow", "duNumberOfBytesToMap"},
-		Fn:         SkipFunctionStdCall(true, 0x20000),
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			addr := emu.Heap.Malloc(1024)
+			return SkipFunctionStdCall(true, addr)(emu, in)
+		},
 	})
 
 	emu.AddHook("", "GlobalAddAtomA", &Hook{
 		Parameters: []string{"a:lpString"},
 		Fn:         SkipFunctionStdCall(true, 0x2131),
 	})
+
+	emu.AddHook("", "ReadProcessMemory", &Hook{
+		Parameters: []string{"hProcess", "lpBaseAddress", "lpBuffer", "nSize", "lpNumberOfBytesRead"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
 }

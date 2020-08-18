@@ -242,7 +242,7 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "ZwConnectPort", &Hook{
 		Parameters: []string{"PortHandle", "PortName", "SecurityQos", "ClientView", "ServerView", "MaxMessageLength", "ConnectionInformation", "ConnectionInformationLength"},
 	})
-	emu.AddHook("", "ZwMapViewOfSection", &Hook{
+	emu.AddHook("", "ZwOfSection", &Hook{
 		Parameters: []string{"SectionHandle", "ProcessHandle", "BaseAddress", "ZeroBits", "CommitSize", "SectionOffset", "ViewSize", "InheritDisposition", "AllocationType", "Win32Protect"},
 	})
 	emu.AddHook("", "ZwOpenKey", &Hook{

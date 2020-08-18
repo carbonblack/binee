@@ -263,4 +263,34 @@ func WinuserHooks(emu *WinEmulator) {
 		Parameters: []string{"hWnd", "Msg", "wParam", "lParam"},
 		Fn:         SkipFunctionStdCall(true, 1),
 	})
+
+	emu.AddHook("", "FindWindowA", &Hook{
+		Parameters: []string{"a:lpClassName", "a:lpWindowName"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "GetWindowThreadProcessId", &Hook{
+		Parameters: []string{"hWnd", "lpdwProcessId"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "GetDlgItem", &Hook{
+		Parameters: []string{"hDlg", "nIDDlgItem"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "GetPropA", &Hook{
+		Parameters: []string{"hWnd", "a:lpString"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "SetPropA", &Hook{
+		Parameters: []string{"hWnd", "a:lpString", "hData"},
+	})
+
+	emu.AddHook("", "PostMessageW", &Hook{
+		Parameters: []string{"hWnd", "Msg", "wParam", "lParam"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
 }

@@ -154,4 +154,18 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"hThread", "lpContext"},
 		Fn:         SkipFunctionStdCall(true, 0),
 	})
+
+	emu.AddHook("", "FlushInstructionCache", &Hook{
+		Parameters: []string{"hProcess", "lpBaseAddress", "dwSize"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
+	emu.AddHook("", "ZwSuspendProcess", &Hook{
+		Parameters: []string{"hProcess"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+	emu.AddHook("", "ZwResumeProcess", &Hook{
+		Parameters: []string{"hProcess"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
 }
