@@ -253,6 +253,7 @@ func NtdllHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "ZwQuerySystemInformation", &Hook{
 		Parameters: []string{"SystemInformationClass", "SystemInformation", "SystemInformationLength", "ReturnLength"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
 	})
 	emu.AddHook("", "ZwQueryValueKey", &Hook{
 		Parameters: []string{"KeyHandle", "ValueName", "KeyValueInformationClass", "KeyValueInformation", "Length", "ResultLength"},
@@ -285,6 +286,7 @@ func NtdllHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "RtlDeleteCriticalSection", &Hook{
 		Parameters: []string{"lpCriticalSection"},
+		NoLog:      true,
 	})
 
 	emu.AddHook("", "RtlReAllocateHeap", &Hook{

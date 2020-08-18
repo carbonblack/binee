@@ -45,6 +45,9 @@ const (
 	MEM_PRESERVE_PLACEHOLDER  = 0x00000002
 	MEM_DECOMMIT              = 0x4000
 	MEM_RELEASE               = 0x8000
+
+	//
+	S_OK = 0x00000000
 )
 
 var EN_LOCALE = map[int]string{

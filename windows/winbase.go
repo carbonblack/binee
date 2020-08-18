@@ -348,4 +348,14 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         getComputerName,
 	})
 
+	emu.AddHook("", "CreateFileMappingA", &Hook{
+		Parameters: []string{"hFile", "lpFileMappingAttributes", "flProtect", "dwMaximumSizeHigh", "dwMaximumSizeLow", "a:lpName"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "RtlEncodeRemotePointer", &Hook{
+		Parameters: []string{"ProcessHandle", "Ptr", "EncodedPtr"},
+		Fn:         SkipFunctionStdCall(true, S_OK),
+	})
+
 }

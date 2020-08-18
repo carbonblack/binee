@@ -130,9 +130,28 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"threadHandle", "ApcRoutine", "ApcRoutineContxt", "ApcStatusBlock", "ApcReserved"},
 		Fn:         SkipFunctionStdCall(true, 1),
 	})
+	emu.AddHook("", "ZwQueueApcThread", &Hook{
+		Parameters: []string{"threadHandle", "ApcRoutine", "ApcRoutineContxt", "ApcStatusBlock", "ApcReserved"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 
 	emu.AddHook("", "NtCreateProcessEx", &Hook{
 		Parameters: []string{"ProcessHandle", "DesiredAccess", "oa", "ParentProcess", "InheritObjectTable", "SectionHandle", "DebugPort", "ExceptionPort", "arg9"},
 		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "OpenThread", &Hook{
+		Parameters: []string{"dwDesiredAccess", "bInheritHandle", "dwThreadId"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
+	emu.AddHook("", "GetProcessIdOfThread", &Hook{
+		Parameters: []string{"Thread"},
+		Fn:         SkipFunctionStdCall(true, 0x3),
+	})
+
+	emu.AddHook("", "GetThreadContext", &Hook{
+		Parameters: []string{"hThread", "lpContext"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 }

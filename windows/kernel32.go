@@ -303,6 +303,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 				return SkipFunctionStdCall(true, 0x0)(emu, in)
 			}
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "FlsSetValue", &Hook{
 		Parameters: []string{"dwFlsIndex", "lpFlsData"},
@@ -374,7 +375,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x2)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{}, NoLog: true})
 	emu.AddHook("", "GetLastActivePopup", &Hook{
 		Parameters: []string{"hWnd"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -640,6 +641,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "InitializeCriticalSectionEx", &Hook{
 		Parameters: []string{"lpCriticalSection", "dwSpinCount", "Flags"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
+		NoLog:      true,
 	})
 	emu.AddHook("", "InitializeCriticalSectionAndSpinCount", &Hook{
 		Parameters: []string{"lpCriticalSection", "dwSpinCount"},
@@ -719,6 +721,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			emu.setLastError(in.Args[0])
 			return SkipFunctionStdCall(false, 0x1)(emu, in)
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "SetThreadAffinityMask", &Hook{
 		Parameters: []string{"hThread", "dwThreadAffinityMask"},

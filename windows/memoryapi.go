@@ -103,4 +103,13 @@ func MemoryApiHooks(emu *WinEmulator) {
 		Parameters: []string{"hProcess", "lpBaseAddress", "lpBuffer", "nSize", "lpNumberOfBytesWritten"},
 		Fn:         writeProcessMemory,
 	})
+	emu.AddHook("", "MapViewOfFile", &Hook{
+		Parameters: []string{"hFileMappingObject", "dwDesiredAccess", "dwFileOffsetHigh", "dwFileOffsetLow", "duNumberOfBytesToMap"},
+		Fn:         SkipFunctionStdCall(true, 0x20000),
+	})
+
+	emu.AddHook("", "GlobalAddAtomA", &Hook{
+		Parameters: []string{"a:lpString"},
+		Fn:         SkipFunctionStdCall(true, 0x2131),
+	})
 }

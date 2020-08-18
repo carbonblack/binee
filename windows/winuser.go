@@ -251,4 +251,16 @@ func WinuserHooks(emu *WinEmulator) {
 		Parameters: []string{"hWnd", "Msg", "wParam", "lParam"},
 		Fn:         SkipFunctionStdCall(true, 0x1337),
 	})
+
+	emu.AddHook("", "SendInput", &Hook{
+		Parameters: []string{"cInputs", "pInputs", "cbSize"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[2])(emu, in)
+		},
+	})
+
+	emu.AddHook("", "PostMessageA", &Hook{
+		Parameters: []string{"hWnd", "Msg", "wParam", "lParam"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 }

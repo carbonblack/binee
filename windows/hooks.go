@@ -53,6 +53,8 @@ func (emu *WinEmulator) LoadHooks() {
 	ShlwapiHooks(emu)
 	Processenv(emu)
 	Ktmw32Hooks(emu)
+	PsapiHooks(emu)
+	ConsoleApi(emu)
 }
 func (emu *WinEmulator) SetupHooks() error {
 	emu.Uc.HookAdd(uc.HOOK_CODE, HookCode(emu), 1, 0)
