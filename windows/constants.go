@@ -119,3 +119,7 @@ func GetLocale(id int) map[int]string {
 	//...
 	return EN_LOCALE
 }
+
+var (
+	DEBUGGER_PROCESS = []string{"ollydbg.exe", "ProcessHacker.exe", "tcpview.exe", "autoruns.exe", "autorunsc.exe", "filemon.exe", "procmon.exe", "regmon.exe", "procexp.exe", "idaq.exe", "idaq64.exe", "ImmunityDebugger.exe", "Wireshark.exe", "dumpcap.exe", "HookExplorer.exe", "ImportREC.exe", "PETools.exe", "LordPE.exe", "SysInspector.exe", "proc_analyzer.exe", "sysAnalyzer.exe", "sniff_hit.exe", "windbg.exe", "joeboxcontrol.exe", "joeboxserver.exe", "joeboxserver.exe", "ResourceHacker.exe", "x32dbg.exe", "x64dbg.exe", "Fiddler.exe", "httpdebugger.exe"}
+)

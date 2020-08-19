@@ -104,8 +104,8 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 	})
 
 	emu.AddHook("", "CreateRemoteThread", &Hook{
-		Parameters: []string{"hProcess", "lpThreadAttributes", "dwStackSize", "lpStartAddress", "lpParameter", "dwCreationFlags", "lpThreadId"},
-		Fn:         SkipFunctionStdCall(true, 0x1337),
+		Parameters: []string{"hProcess", "lpThreadAttributes", "dwStackSize", "lpParameter", "lpStartAddress", "dwCreationFlags", "lpThreadId"},
+		Fn:         SkipFunctionStdCall(true, emu.Heap.Malloc(10)),
 	})
 
 	emu.AddHook("", "ResumeThread", &Hook{
