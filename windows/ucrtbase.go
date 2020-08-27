@@ -465,7 +465,18 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		Parameters: []string{"a:str"},
 		Fn:         SkipFunctionCdecl(true, 0),
 	})
+	emu.AddHook("", "putc", &Hook{
+		Parameters: []string{"c:character", "stream"},
+		Fn:         SkipFunctionCdecl(true, 1),
+	})
 	emu.AddHook("", "strncmp", &Hook{
 		Parameters: []string{"a:string1", "a:string2", "size"},
+	})
+
+	emu.AddHook("", "_onexit", &Hook{
+		Parameters: []string{"function"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionCdecl(true, in.Args[0])(emu, in)
+		},
 	})
 }

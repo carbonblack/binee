@@ -353,6 +353,14 @@ func (i *Instruction) StringHook() string {
 			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], uint32(i.Hook.Values[j].(uint64)))
 		case "l:":
 			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		case "c:":
+			if i.Hook.Values[j].(uint64) == uint64('\n') {
+				ret += fmt.Sprintf("%s = \\n", i.Hook.Parameters[j][2:])
+
+			} else {
+				ret += fmt.Sprintf("%s = %c", i.Hook.Parameters[j][2:], i.Hook.Values[j].(uint64))
+
+			}
 		default:
 			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
 		}
