@@ -1,6 +1,7 @@
 package windows
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -43,6 +44,28 @@ func allocateVirtualMemory(emu *WinEmulator, in *Instruction) bool {
 	}
 
 	return SkipFunctionStdCall(true, 0x0)(emu, in)
+}
+func QueryInformationProcess(emu *WinEmulator, in *Instruction) bool {
+	//this will be a continuous development process.
+	systemInformationClass := in.Args[0]
+
+	if systemInformationClass == SystemHandleInformation {
+
+		if emu.PtrSize == 4 {
+			info := struct {
+				ModulesCount  uint32
+				SYSTEM_MODULE uint32
+			}{
+				0x0,
+				0x0,
+			}
+			systemModuleInfo := new(bytes.Buffer)
+			binary.Write(systemModuleInfo, binary.LittleEndian, &info)
+			emu.Uc.MemWrite(in.Args[1], systemModuleInfo.Bytes())
+			return SkipFunctionCdecl(true, ERROR_SUCCESS)(emu, in)
+		}
+	}
+	return true
 }
 
 func NtdllHooks(emu *WinEmulator) {
@@ -251,10 +274,6 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "ZwQueryInformationProcess", &Hook{
 		Parameters: []string{"ProcessHandle", "ProcessInformationClass", "ProcessInformation", "ProcessInformationLength", "ReturnLength"},
 	})
-	emu.AddHook("", "ZwQuerySystemInformation", &Hook{
-		Parameters: []string{"SystemInformationClass", "SystemInformation", "SystemInformationLength", "ReturnLength"},
-		Fn:         SkipFunctionStdCall(true, 0x1337),
-	})
 	emu.AddHook("", "ZwQueryValueKey", &Hook{
 		Parameters: []string{"KeyHandle", "ValueName", "KeyValueInformationClass", "KeyValueInformation", "Length", "ResultLength"},
 	})
@@ -341,5 +360,10 @@ func NtdllHooks(emu *WinEmulator) {
 			}
 			return SkipFunctionStdCall(true, 0xFFFFFFFF)(emu, in)
 		},
+	})
+
+	emu.AddHook("", "ZwQuerySystemInformation", &Hook{
+		Parameters: []string{"SystemInformationClass", "SystemInformation", "SystemInformationLength", "ReturnLength"},
+		Fn:         QueryInformationProcess,
 	})
 }

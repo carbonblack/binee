@@ -479,4 +479,7 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			return SkipFunctionCdecl(true, in.Args[0])(emu, in)
 		},
 	})
+	emu.AddHook("", "getchar", &Hook{
+		Fn: SkipFunctionCdecl(true, 0x13),
+	})
 }

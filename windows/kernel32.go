@@ -759,10 +759,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 
-	emu.AddHook("", "VirtualQuery", &Hook{
-		Parameters: []string{"lpAddress", "lpBuffer", "dwLength"},
-		Fn:         SkipFunctionStdCall(true, 0x1),
-	})
 	emu.AddHook("", "VerSetConditionMask", &Hook{
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(false, 0x1),

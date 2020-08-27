@@ -45,6 +45,11 @@ const (
 	MEM_PRESERVE_PLACEHOLDER  = 0x00000002
 	MEM_DECOMMIT              = 0x4000
 	MEM_RELEASE               = 0x8000
+	MEM_COMMIT                = 0x1000
+	MEM_RESERVE               = 0x00002000
+	MEM_RESET                 = 0x80000
+	MEM_RESET_UNDO            = 0x1000000
+	MEM_PRIVATE               = 0x20000
 
 	//
 	S_OK = 0x00000000
@@ -122,4 +127,10 @@ func GetLocale(id int) map[int]string {
 
 var (
 	DEBUGGER_PROCESS = []string{"ollydbg.exe", "ProcessHacker.exe", "tcpview.exe", "autoruns.exe", "autorunsc.exe", "filemon.exe", "procmon.exe", "regmon.exe", "procexp.exe", "idaq.exe", "idaq64.exe", "ImmunityDebugger.exe", "Wireshark.exe", "dumpcap.exe", "HookExplorer.exe", "ImportREC.exe", "PETools.exe", "LordPE.exe", "SysInspector.exe", "proc_analyzer.exe", "sysAnalyzer.exe", "sniff_hit.exe", "windbg.exe", "joeboxcontrol.exe", "joeboxserver.exe", "joeboxserver.exe", "ResourceHacker.exe", "x32dbg.exe", "x64dbg.exe", "Fiddler.exe", "httpdebugger.exe"}
+)
+
+const (
+	//https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/class.htm
+	/*SYSTEM_INFORMATION_CLASS*/
+	SystemHandleInformation = 0x10
 )

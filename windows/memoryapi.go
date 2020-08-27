@@ -1,8 +1,10 @@
 package windows
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
+	"syscall"
 )
 
 func virtualAllocEx(emu *WinEmulator, in *Instruction) bool {
@@ -84,6 +86,54 @@ func writeProcessMemory(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, 0x1)(emu, in)
 }
 
+func virtualQuery(emu *WinEmulator, in *Instruction) bool {
+	extended := false
+	var baseAddress uint64
+	if in.Hook.Name[len(in.Hook.Name)-2:len(in.Hook.Name)] == "Ex" {
+		extended = true
+	}
+	if extended {
+		baseAddress = in.Args[1]
+	} else {
+		baseAddress = in.Args[0]
+	}
+	if emu.PtrSize == 4 {
+		memInfo := struct {
+			BaseAddress       uint32
+			AllocationBase    uint32
+			AllocationProtect uint32
+			PartitionId       uint16
+			RegionSize        uint16
+			State             uint32
+			Protect           uint32
+			Type              uint32
+		}{uint32(baseAddress),
+			uint32(baseAddress),
+			syscall.PAGE_READWRITE,
+			0x1337,
+			1024,
+			MEM_COMMIT,
+			syscall.PAGE_READWRITE,
+			MEM_PRIVATE,
+		}
+		memInfoBuffer := new(bytes.Buffer)
+		binary.Write(memInfoBuffer, binary.LittleEndian, &memInfo)
+		emu.Uc.MemWrite(in.Args[2], memInfoBuffer.Bytes())
+		sz := uint64(len(memInfoBuffer.Bytes()))
+		return SkipFunctionStdCall(true, sz)(emu, in)
+	}
+	return SkipFunctionStdCall(true, 0)(emu, in)
+
+}
+
+func readProcessMemory(emu *WinEmulator, in *Instruction) bool {
+	hProcess := in.Args[0]
+	if _, ok := emu.Handles[hProcess]; !ok {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)(emu, in) //Failed
+	}
+	return SkipFunctionStdCall(true, 0x1337)(emu, in)
+}
 func MemoryApiHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "VirtualAlloc", &Hook{
@@ -123,7 +173,15 @@ func MemoryApiHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "ReadProcessMemory", &Hook{
 		Parameters: []string{"hProcess", "lpBaseAddress", "lpBuffer", "nSize", "lpNumberOfBytesRead"},
-		Fn:         SkipFunctionStdCall(true, 1),
+		Fn:         readProcessMemory,
 	})
 
+	emu.AddHook("", "VirtualQuery", &Hook{
+		Parameters: []string{"lpAddress", "lpBuffer", "dwLength"},
+		Fn:         virtualQuery,
+	})
+	emu.AddHook("", "VirtualQueryEx", &Hook{
+		Parameters: []string{"hProcess", "lpAddress", "lpBuffer", "dwLength"},
+		Fn:         virtualQuery,
+	})
 }
