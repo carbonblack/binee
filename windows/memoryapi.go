@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math"
-	"syscall"
 )
 
 func virtualAllocEx(emu *WinEmulator, in *Instruction) bool {
@@ -109,11 +108,11 @@ func virtualQuery(emu *WinEmulator, in *Instruction) bool {
 			Type              uint32
 		}{uint32(baseAddress),
 			uint32(baseAddress),
-			syscall.PAGE_READWRITE,
+			PAGE_READWRITE,
 			0x1337,
 			1024,
 			MEM_COMMIT,
-			syscall.PAGE_READWRITE,
+			PAGE_READWRITE,
 			MEM_PRIVATE,
 		}
 		memInfoBuffer := new(bytes.Buffer)

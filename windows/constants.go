@@ -53,6 +53,14 @@ const (
 
 	//
 	S_OK = 0x00000000
+
+	//
+	PAGE_READONLY          = 0x02
+	PAGE_READWRITE         = 0x04
+	PAGE_WRITECOPY         = 0x08
+	PAGE_EXECUTE_READ      = 0x20
+	PAGE_EXECUTE_READWRITE = 0x40
+	PAGE_EXECUTE_WRITECOPY = 0x80
 )
 
 var EN_LOCALE = map[int]string{
