@@ -29,7 +29,7 @@ func ExtractBehaviour(binaryFile *C.char, arguments *C.char, dllsPath *C.char, o
 	}
 	emu.Start()
 	f, err := os.Create(outputInput)
-	if err != nil {
+	if err == nil {
 		defer f.Close()
 		for i, _ := range emu.FactFactory.Facts {
 			f.WriteString(i + "\n")

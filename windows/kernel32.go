@@ -425,6 +425,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetProcessHeap", &Hook{
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x123456),
+		NoLog:      true,
 	})
 	emu.AddHook("", "GetProcessIoCounters", &Hook{
 		Parameters: []string{"hProcess", "lpIoCounters"},

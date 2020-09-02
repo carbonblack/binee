@@ -323,6 +323,7 @@ func NtdllHooks(emu *WinEmulator) {
 			emu.Uc.MemWrite(newAddr, oldMemory)
 			return SkipFunctionStdCall(true, newAddr)(emu, in)
 		},
+		NoLog: true,
 	})
 
 	emu.AddHook("", "RtlEncodePointer", &Hook{

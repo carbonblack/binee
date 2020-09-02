@@ -7,7 +7,50 @@ import (
 )
 
 //import "fmt"
+func getVolumeInformation(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
+	/*The function depends on the given parameters to know what is requested,
+	  nulled input means its not required */
+	volumeName := emu.Opts.VolumeName
+	volumeSerial := emu.Opts.VolumeSerialNumber
+	volumeSystemName := emu.Opts.VolumeSystemName
+	if wide {
+		if in.Args[0] != 0 {
+			//This might be used later to assume we have many volumes.
+			//rootPathName=util.ReadWideChar(emu.Uc,in.Args[0],0)
+		}
+		if in.Args[1] != 0 { // Volume name is required.
+			if len(volumeName) < int(in.Args[2]) { //Check volume name size
+				volumeNameW := util.ASCIIToWinWChar(volumeName)
+				err := emu.Uc.MemWrite(in.Args[1], volumeNameW)
+				if err != nil {
+					return SkipFunctionStdCall(true, 0)
+				}
+			}
+		}
+		if in.Args[3] != 0 { //Volume serial is required.
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(buf, uint32(volumeSerial))
+			err := emu.Uc.MemWrite(in.Args[3], buf)
+			if err != nil {
+				return SkipFunctionStdCall(true, 0)
+			}
+		}
 
+		if in.Args[6] != 0 {
+			if len(volumeSystemName) < int(in.Args[7]) { //Check volume name size
+				volumeSystemNameW := util.ASCIIToWinWChar(volumeSystemName)
+				err := emu.Uc.MemWrite(in.Args[6], volumeSystemNameW)
+				if err != nil {
+					return SkipFunctionStdCall(true, 0)
+				}
+			}
+		}
+
+	} else {
+
+	}
+	return SkipFunctionStdCall(true, 0)
+}
 func FileapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "CreateDirectoryA", &Hook{
 		Parameters: []string{"a:lpPathName", "lpSecurityAttributes"},
@@ -134,5 +177,11 @@ func FileapiHooks(emu *WinEmulator) {
 
 		},
 		//Fn:         SkipFunctionStdCall(true, 0x80),
+	})
+	emu.AddHook("", "GetVolumeInformationW", &Hook{
+		Parameters: []string{"w:lpRootPathName", "w:lpVolumeNameBuffer", "nVolumeNameSize", "lpVolumeSerialNumber", "lpMaximumComponentLength", "lpFileSystemFlags", "w:lpFileSystemNameBuffer", "nFileSystemNameSize"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return getVolumeInformation(emu, in, true)(emu, in)
+		},
 	})
 }

@@ -3,6 +3,7 @@ package windows
 import (
 	"encoding/binary"
 	"github.com/carbonblack/binee/pefile"
+	"io"
 	"strconv"
 	"strings"
 
@@ -173,6 +174,48 @@ func getComputerName(emu *WinEmulator, in *Instruction) bool {
 		emu.Uc.MemWrite(in.Args[0], append([]byte(emu.Opts.ComputerName), 0))
 	}
 	return SkipFunctionStdCall(true, 1)(emu, in)
+}
+
+func createFileMapping(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
+	fileHandle, ok := emu.Handles[in.Args[0]]
+	if !ok {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)
+	}
+	file := fileHandle.File
+	fileSize, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)
+	}
+	fileData := make([]byte, fileSize)
+	_, err = file.Read(fileData)
+	if err != nil {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)
+	}
+	addr := emu.Heap.Malloc(uint64(fileSize))
+	err = emu.Uc.MemWrite(addr, fileData)
+	if err != nil {
+		return SkipFunctionStdCall(true, 0)
+	}
+	return SkipFunctionStdCall(true, addr)
+}
+
+func lstrcmpi(emu *WinEmulator, in *Instruction) bool {
+	var retVal int
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	if wide {
+		string1 := util.ReadWideChar(emu.Uc, in.Args[0], 0)
+		string2 := util.ReadWideChar(emu.Uc, in.Args[1], 0)
+		retVal = strings.Compare(strings.ToLower(string1), strings.ToLower(string2))
+
+	} else {
+		string1 := util.ReadASCII(emu.Uc, in.Args[0], 0)
+		string2 := util.ReadASCII(emu.Uc, in.Args[1], 0)
+		retVal = strings.Compare(strings.ToLower(string1), strings.ToLower(string2))
+	}
+	return SkipFunctionStdCall(true, uint64(retVal))(emu, in)
 }
 
 func WinbaseHooks(emu *WinEmulator) {
@@ -347,11 +390,23 @@ func WinbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"lpBuffer", "pcbBuffer"},
 		Fn:         getComputerName,
 	})
-
 	emu.AddHook("", "CreateFileMappingA", &Hook{
 		Parameters: []string{"hFile", "lpFileMappingAttributes", "flProtect", "dwMaximumSizeHigh", "dwMaximumSizeLow", "a:lpName"},
-		Fn:         SkipFunctionStdCall(true, 0x5351),
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			return createFileMapping(emu, in, true)(emu, in)
+		},
 	})
+	emu.AddHook("", "CreateFileMappingW", &Hook{
+		Parameters: []string{"hFile", "lpFileMappingAttributes", "flProtect", "dwMaximumSizeHigh", "dwMaximumSizeLow", "w:lpName"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			return createFileMapping(emu, in, true)(emu, in)
+		},
+	})
+
+	//emu.AddHook("", "CreateFileMappingA", &Hook{
+	//	Parameters: []string{"hFile", "lpFileMappingAttributes", "flProtect", "dwMaximumSizeHigh", "dwMaximumSizeLow", "a:lpName"},
+	//	Fn:         SkipFunctionStdCall(true, 0x5351),
+	//})
 
 	emu.AddHook("", "RtlEncodeRemotePointer", &Hook{
 		Parameters: []string{"ProcessHandle", "Ptr", "EncodedPtr"},
@@ -367,6 +422,15 @@ func WinbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"SectionHandle", "ProcessHandle", "BaseAddress", "ZeroBits", "CommitSize", "SectionOffset", "ViewSize",
 			"InheritDisposition", "AllocationType", "Win32Protect"},
 		Fn: SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "lstrcmpiA", &Hook{
+		Parameters: []string{"a:lpString1", "a:lpString2"},
+		Fn:         lstrcmpi,
+	})
+	emu.AddHook("", "lstrcmpiW", &Hook{
+		Parameters: []string{"w:lpString1", "w:lpString2"},
+		Fn:         lstrcmpi,
 	})
 
 }
