@@ -103,10 +103,11 @@ type WinEmulator struct {
 	ResourcesRoot      pefile.ResourceDirectory
 	ProcessManager     *ProcessManager
 	// these commands are used to keep state during single step mode
-	LastCommand  string
-	Breakpoints  map[uint64]uint64
-	AutoContinue bool
-	FactFactory  *FactFactory
+	LastCommand   string
+	Breakpoints   map[uint64]uint64
+	AutoContinue  bool
+	FactFactory   *FactFactory
+	GenerateFacts bool
 }
 
 // AddHook makes a new function hook available to the emulated process
@@ -141,25 +142,27 @@ const (
 
 // WinEmulatorOptions will get passed into the WinEmulator
 type WinEmulatorOptions struct {
-	RootFolder   string
-	RunDLLMain   bool
-	ConfigPath   string
-	VerboseLevel int
-	ShowDLL      bool
-	MaxTicks     int64
-	LogType      int
+	RootFolder    string
+	RunDLLMain    bool
+	ConfigPath    string
+	VerboseLevel  int
+	ShowDLL       bool
+	MaxTicks      int64
+	LogType       int
+	GenerateFacts bool
 }
 
 // InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
 func InitWinEmulatorOptions() *WinEmulatorOptions {
 	return &WinEmulatorOptions{
-		RootFolder:   "os/win10_32/",
-		RunDLLMain:   false,
-		ConfigPath:   "",
-		VerboseLevel: 0,
-		ShowDLL:      false,
-		MaxTicks:     0,
-		LogType:      LogTypeStdout,
+		RootFolder:    "os/win10_32/",
+		RunDLLMain:    false,
+		ConfigPath:    "",
+		VerboseLevel:  0,
+		ShowDLL:       false,
+		MaxTicks:      0,
+		LogType:       LogTypeStdout,
+		GenerateFacts: false,
 	}
 }
 
@@ -224,7 +227,10 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Seed = 1
 	emu.ResourcesRoot = pe.ResourceDirectoryRoot
 	emu.ProcessManager = InitializeProcessManager(true)
-	emu.FactFactory = InitializeFactsFactory()
+	emu.GenerateFacts = options.GenerateFacts
+	if emu.GenerateFacts {
+		emu.FactFactory = InitializeFactsFactory()
+	}
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
 		emu.MemRegions.GdtAddress = 0xc0000000

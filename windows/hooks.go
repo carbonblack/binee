@@ -82,8 +82,10 @@ func (emu *WinEmulator) Start() error {
 	emu.SetupHooks()
 
 	emu.Uc.Start(emu.EntryPoint, 0x0)
-	for i, _ := range emu.FactFactory.Facts {
-		fmt.Println(i)
+	if emu.GenerateFacts && emu.FactFactory != nil {
+		for i, _ := range emu.FactFactory.Facts {
+			fmt.Println(i)
+		}
 	}
 	return nil
 }
@@ -140,7 +142,9 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 			}
 		}
-		addFact(instruction, emu)
+		if emu.GenerateFacts {
+			addFact(instruction, emu)
+		}
 		if doContinue == false {
 			mu.Stop()
 		}
