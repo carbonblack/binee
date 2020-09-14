@@ -31,7 +31,14 @@ func sprintf(emu *WinEmulator, in *Instruction, wide bool) {
 	in.FmtToParameters(parameters)
 }
 func printf(emu *WinEmulator, in *Instruction) bool {
-	format := util.ReadASCII(emu.Uc, in.Args[0], 0)
+	wide := in.Hook.Name[0] == 'w'
+	var format string
+	if wide {
+		format = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		format = util.ReadASCII(emu.Uc, in.Args[0], 0)
+
+	}
 	parameters := util.ParseFormatter(format)
 	var startAddr uint64
 	//Get stack address
@@ -47,14 +54,20 @@ func printf(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionCdecl(false, 0)(emu, in)
 }
 func fopen(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
-	path := util.ReadASCII(emu.Uc, in.Args[0], 0)
+	wide := in.Hook.Name[1] == 'w'
+	var path string
+	if wide {
+		path = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		path = util.ReadASCII(emu.Uc, in.Args[0], 0)
+	}
 
 	if handle, err := emu.OpenFile(path, 0); err == nil {
 		addr := emu.Heap.Malloc(256)
 		emu.Handles[addr] = handle
 		return SkipFunctionStdCall(true, addr)
 	} else {
-		return SkipFunctionStdCall(true, 0xffffffff)
+		return SkipFunctionStdCall(true, 0)
 	}
 }
 
@@ -89,7 +102,16 @@ func fclose(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instru
 	handle.Close()
 	return SkipFunctionStdCall(true, 0x0)
 }
-
+func fcloseAll(emu *WinEmulator, in *Instruction) bool {
+	numberClosed := 0
+	for _, handle := range emu.Handles {
+		if handle.File != nil {
+			handle.Close()
+			numberClosed += 1
+		}
+	}
+	return SkipFunctionStdCall(true, uint64(numberClosed))(emu, in)
+}
 func fread(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
 	bufAddr := in.Args[0]
 	size := in.Args[1]
@@ -115,17 +137,17 @@ func fwrite(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instru
 	handleAddr := in.Args[3]
 	handle := emu.Handles[handleAddr]
 	if handle == nil {
-		return SkipFunctionStdCall(true, 0x0)
+		return SkipFunctionCdecl(true, 0x0)
 	}
 	if size == 0 || count == 0 {
-		return SkipFunctionStdCall(true, 0x0)
+		return SkipFunctionCdecl(true, 0x0)
 	}
 	out, err := emu.Uc.MemRead(bufAddr, size*count)
 	if err != nil {
-		return SkipFunctionStdCall(true, uint64(0))
+		return SkipFunctionCdecl(true, uint64(0))
 	}
 	handle.Write(out)
-	return SkipFunctionStdCall(true, uint64(len(out)))
+	return SkipFunctionCdecl(true, uint64(len(out))/size)
 }
 
 func fputs(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
@@ -335,6 +357,12 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			return fopen(emu, in)(emu, in)
 		},
 	})
+	emu.AddHook("", "_wfopen", &Hook{
+		Parameters: []string{"w:filename", "w:mode"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return fopen(emu, in)(emu, in)
+		},
+	})
 	emu.AddHook("", "fseek", &Hook{
 		Parameters: []string{"stream", "offset", "origin"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -352,6 +380,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return fclose(emu, in)(emu, in)
 		},
+	})
+	emu.AddHook("", "_fcloseall", &Hook{
+		Parameters: []string{""},
+		Fn:         fcloseAll,
 	})
 	emu.AddHook("", "fread", &Hook{
 		Parameters: []string{"buffer", "size", "count", "stream"},
@@ -389,11 +421,11 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	})
 
 	emu.AddHook("", "wcslen", &Hook{
-		Parameters: []string{"str"},
+		Parameters: []string{"w:str"},
 	})
 
 	emu.AddHook("", "wcslen", &Hook{
-		Parameters: []string{"str"},
+		Parameters: []string{"w:str"},
 	})
 	emu.AddHook("", "wcsncpy", &Hook{
 		Parameters: []string{"strDest", "strSource", "count"},
@@ -401,6 +433,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 
 	emu.AddHook("", "printf", &Hook{
 		Parameters: []string{"a:format"},
+		Fn:         printf,
+	})
+	emu.AddHook("", "wprintf", &Hook{
+		Parameters: []string{"w:format"},
 		Fn:         printf,
 	})
 	emu.AddHook("", "wcsncpy_s", &Hook{

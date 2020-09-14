@@ -311,6 +311,10 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "strcpy", &Hook{
 		Parameters: []string{"strDest", "a:strSource"},
 	})
+
+	emu.AddHook("", "wcscpy_s", &Hook{
+		Parameters: []string{"dest", "dest_size", "w:src"},
+	})
 	emu.AddHook("", "strncpy", &Hook{
 		Parameters: []string{"strDest", "a:strSource", "count"},
 	})

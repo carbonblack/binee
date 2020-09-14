@@ -6,11 +6,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"strings"
-
 	"github.com/carbonblack/binee/pefile"
-
 	uc "github.com/unicorn-engine/unicorn/bindings/go/unicorn"
+	"strings"
 )
 
 // StructWrite given a struct and a unicorn memory address. Convert the struct to a byte
@@ -157,50 +155,41 @@ func ReadASCII(u uc.Unicorn, addr uint64, size int) string {
 // ReadWideChar will read a windows 2 byte wchar from an address, terminating
 // at two null bytes. The return value will not include the null bytes.
 func ReadWideChar(u uc.Unicorn, addr uint64, size int) string {
-	ret := make([]byte, 0, 0)
-
+	var char string
+	retString := ""
 	if size == 0 {
 		size = 100000
 	}
-
 	for i := 0; i < size; i += 2 {
 		b, err := u.MemRead(addr+uint64(i), 2)
 
 		if err != nil {
 			break
 		}
-
 		if b[0] == 0x00 && b[1] == 0x00 {
 			break
 		}
-
-		switch b[0] {
-		case 0x09:
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x74)
-		case 0x0a:
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x6e)
-		case 0x0b:
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x76)
-		case 0x0c:
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x66)
-		case 0x0d:
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x5c)
-			ret = append(ret, 0x72)
+		var rawChar uint16
+		rawChar = uint16(b[1])
+		rawChar <<= 8
+		rawChar |= uint16(b[0])
+		char = string(rawChar)
+		switch char[0] {
+		case '\t':
+			retString += "\\t"
+		case '\n':
+			retString += "\\n"
+		case '\v':
+			retString += "\\v"
+		case '\f':
+			retString += "\\f"
+		case '\r':
+			retString += "\\r"
 		default:
-			ret = append(ret, b[0])
+			retString += char
 		}
 	}
-
-	return string(ret)
+	return retString
 }
 
 // ReadPeFile will attempt to read a PE file from unicorn memory looking for specific headers
