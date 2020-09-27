@@ -103,11 +103,19 @@ type WinEmulator struct {
 	ResourcesRoot      pefile.ResourceDirectory
 	ProcessManager     *ProcessManager
 	// these commands are used to keep state during single step mode
-	LastCommand   string
-	Breakpoints   map[uint64]uint64
-	AutoContinue  bool
-	FactFactory   *FactFactory
-	GenerateFacts bool
+	LastCommand     string
+	Breakpoints     map[uint64]uint64
+	AutoContinue    bool
+	FactFactory     *FactFactory
+	GenerateFacts   bool
+	GlobalVariables GlobalVariables
+}
+
+//Reference
+//https://docs.microsoft.com/en-us/cpp/c-runtime-library/global-variables
+type GlobalVariables struct {
+	Fmode   uint64
+	Commode uint64
 }
 
 // AddHook makes a new function hook available to the emulated process
@@ -240,7 +248,6 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 		emu.MemRegions.TibAddress = 0x7efdd000
 		emu.MemRegions.LibAddress = 0x20000000
 		emu.NextLibAddress = emu.MemRegions.LibAddress
-
 	} else {
 		emu.PtrSize = 8
 		emu.MemRegions.GdtAddress = 0xc0000000
@@ -253,6 +260,13 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	}
 
 	emu.Heap = core.NewHeap(emu.MemRegions.HeapAddress)
+	if pe.PeType == pefile.Pe32 {
+		emu.GlobalVariables.Fmode = emu.Heap.Malloc(4)
+		emu.GlobalVariables.Commode = emu.Heap.Malloc(4)
+	} else {
+		emu.GlobalVariables.Fmode = emu.Heap.Malloc(8)
+		emu.GlobalVariables.Commode = emu.Heap.Malloc(8)
+	}
 	emu.Breakpoints = make(map[uint64]uint64)
 
 	os.MkdirAll("temp", os.ModePerm)

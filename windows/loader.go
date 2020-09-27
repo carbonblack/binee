@@ -391,6 +391,7 @@ func (emu *WinEmulator) updateImageBase(pe *pefile.PeFile) {
 	}
 
 	// set address for next DLL
+	//TODO Make it an equation
 	for i := 0; i <= dllSize; i += 4096 {
 		emu.NextLibAddress += 4096
 	}

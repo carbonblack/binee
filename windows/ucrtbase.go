@@ -278,11 +278,11 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "_set_fmode", &Hook{Parameters: []string{"mode"}})
 	emu.AddHook("", "__p__fmode", &Hook{
 		Parameters: []string{"mode"},
-		Fn:         SkipFunctionCdecl(true, 0x4000),
+		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Fmode),
 	})
 	emu.AddHook("", "__p__commode", &Hook{
 		Parameters: []string{"mode"},
-		Fn:         SkipFunctionCdecl(true, 0x4000),
+		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Commode),
 	})
 	emu.AddHook("", "_Xtime_get_ticks", &Hook{
 		Parameters: []string{"lpFileTime"},

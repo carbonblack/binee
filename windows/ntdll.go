@@ -62,7 +62,7 @@ func QueryInformationProcess(emu *WinEmulator, in *Instruction) bool {
 			systemModuleInfo := new(bytes.Buffer)
 			binary.Write(systemModuleInfo, binary.LittleEndian, &info)
 			emu.Uc.MemWrite(in.Args[1], systemModuleInfo.Bytes())
-			return SkipFunctionCdecl(true, ERROR_SUCCESS)(emu, in)
+			return SkipFunctionStdCall(true, ERROR_SUCCESS)(emu, in)
 		}
 	}
 	return true
