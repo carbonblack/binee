@@ -277,11 +277,11 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "__set_app_type", &Hook{Parameters: []string{"appType"}})
 	emu.AddHook("", "_set_fmode", &Hook{Parameters: []string{"mode"}})
 	emu.AddHook("", "__p__fmode", &Hook{
-		Parameters: []string{"mode"},
+		Parameters: []string{""},
 		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Fmode),
 	})
 	emu.AddHook("", "__p__commode", &Hook{
-		Parameters: []string{"mode"},
+		Parameters: []string{""},
 		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Commode),
 	})
 	emu.AddHook("", "_Xtime_get_ticks", &Hook{
@@ -508,6 +508,7 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "strncmp", &Hook{
 		Parameters: []string{"a:string1", "a:string2", "size"},
 	})
+	emu.AddHook("", "_setmbcp", &Hook{Parameters: []string{"codepage"}})//Fn:SkipFunctionCdecl(true,0),
 
 	emu.AddHook("", "_onexit", &Hook{
 		Parameters: []string{"function"},

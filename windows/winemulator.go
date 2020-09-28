@@ -109,6 +109,7 @@ type WinEmulator struct {
 	FactFactory     *FactFactory
 	GenerateFacts   bool
 	GlobalVariables GlobalVariables
+	NumMainCallDll  uint //number of dlls whose main are called.
 }
 
 //Reference

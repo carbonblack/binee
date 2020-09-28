@@ -1320,6 +1320,17 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		}
 	}
 
+	//Some dlls has to be loaded and they don't cause problems
+	//TODO Take as input
+	loadDlls := []string{"msvcrt.dll"}
+	mainLoaded := make(map[string]bool)
+	for _, dll := range loadDlls {
+		if actualDll, ok := peMap[dll]; ok {
+			emu.setupDllMainCallstack(actualDll)
+			mainLoaded[dll] = true
+		}
+	}
+
 	//setup dllmain stack
 	if calldllmain {
 		//this is the incorrect order, need to make sure kernel32 starts first so it gets called last
@@ -1327,14 +1338,16 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		for i := len(ldrList) - 1; i >= 0; i-- {
 			name := ldrList[i]
 			dll := peMap[name]
-			if !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
+			_, loaded := mainLoaded[name] //Check if name exists in map, so it was previously added.
+			if !loaded && !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
 				if dll.EntryPoint() != 0 {
 					emu.setupDllMainCallstack(dll)
+					mainLoaded[name] = true
 				}
 			}
 		}
 	}
-
+	emu.NumMainCallDll = uint(len(mainLoaded))
 	// write the target PE file to memory
 	emu.Uc.MemWrite(pe.ImageBase(), pe.RawHeaders)
 	for i := 0; i < len(pe.Sections); i++ {

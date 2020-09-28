@@ -33,13 +33,14 @@ func NewScheduleManager(emu *WinEmulator) *ScheduleManager {
 		buf := make([]byte, 4)
 		binary.LittleEndian.PutUint32(buf, uint32(exitFunc))
 		esp, _ := emu.Uc.RegRead(unicorn.X86_REG_ESP)
+		esp -= uint64(4 * emu.NumMainCallDll)
 		emu.Uc.MemWrite(esp, buf)
-
 	} else {
 		exitFunc := emu.libFunctionAddress["ntdll.dll"]["RtlExitUserThread"]
 		buf := make([]byte, 8)
 		binary.LittleEndian.PutUint64(buf, exitFunc)
-		rsp, _ := emu.Uc.RegRead(unicorn.X86_REG_RSP)
+		rsp, _ := emu.Uc.RegRead(unicorn.X86_REG_RSP + (-8 * int(emu.NumMainCallDll*4)))
+		rsp -= uint64(8 * emu.NumMainCallDll)
 		emu.Uc.MemWrite(rsp, buf)
 	}
 
