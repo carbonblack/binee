@@ -60,7 +60,14 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"Handle"},
 		Fn:         SkipFunctionStdCall(true, 0x1337),
 	})
-
+	emu.AddHook("", "SetPriorityClass", &Hook{
+		Parameters: []string{"hProcess", "dwPriorityClass"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+	emu.AddHook("", "SetProcessPriorityBoost", &Hook{
+		Parameters: []string{"hProcess", "dwPriorityClass"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
 	emu.AddHook("", "CreateThread", &Hook{
 		Parameters: []string{"lpThreadAttributes", "dwStackSize", "lpStartAddress", "lpParameter", "dwCreationFlags", "lpThreadId"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -153,6 +160,11 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "GetThreadContext", &Hook{
 		Parameters: []string{"hThread", "lpContext"},
 		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "SetThreadPriority", &Hook{
+		Parameters: []string{"hThread", "dwPriorityClass"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
 	})
 
 	emu.AddHook("", "FlushInstructionCache", &Hook{

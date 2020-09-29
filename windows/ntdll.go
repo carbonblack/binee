@@ -370,6 +370,6 @@ func NtdllHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "RtlQueryPerformanceCounter", &Hook{
 		Parameters: []string{},
-		Fn:         SkipFunctionStdCall(false, 0),
+		Fn:         SkipFunctionStdCall(false, ERROR_SUCCESS),
 	})
 }
