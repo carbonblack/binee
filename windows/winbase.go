@@ -65,7 +65,7 @@ func FindResource(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, 0)(emu, in)
 }
 
-func emuResourceNames(emu *WinEmulator, in *Instruction) bool {
+func enumResourceNames(emu *WinEmulator, in *Instruction) bool {
 	var resourceType interface{}
 	resourceTypeRaw := in.Args[1]
 	resourceType = uint32(resourceTypeRaw)
@@ -218,6 +218,26 @@ func lstrcmpi(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, uint64(retVal))(emu, in)
 }
 
+func strnicmp(emu *WinEmulator, in *Instruction) bool {
+	var retVal int
+	n := in.Args[2]
+	if n <= 0 {
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	if wide {
+		string1 := util.ReadWideChar(emu.Uc, in.Args[0], int(n*2))
+		string2 := util.ReadWideChar(emu.Uc, in.Args[1], int(n*2))
+		retVal = strings.Compare(strings.ToLower(string1), strings.ToLower(string2))
+
+	} else {
+		string1 := util.ReadASCII(emu.Uc, in.Args[0], int(n))
+		string2 := util.ReadASCII(emu.Uc, in.Args[1], int(n))
+		retVal = strings.Compare(strings.ToLower(string1), strings.ToLower(string2))
+	}
+	return SkipFunctionStdCall(true, uint64(retVal))(emu, in)
+}
+
 func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "AddAtomA", &Hook{
 		Parameters: []string{"a:lpString"},
@@ -351,11 +371,11 @@ func WinbaseHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "EnumResourceNamesA", &Hook{
 		Parameters: []string{"hModule", "a:lpType", "lpEnumFunc", "lParam"},
-		Fn:         emuResourceNames,
+		Fn:         enumResourceNames,
 	})
 	emu.AddHook("", "EnumResourceNamesW", &Hook{
 		Parameters: []string{"hModule", "w:lpType", "lpEnumFunc", "lParam"},
-		Fn:         emuResourceNames,
+		Fn:         enumResourceNames,
 	})
 
 	emu.AddHook("", "LocalFree", &Hook{
@@ -435,6 +455,10 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "lstrcmpiW", &Hook{
 		Parameters: []string{"w:lpString1", "w:lpString2"},
 		Fn:         lstrcmpi,
+	})
+	emu.AddHook("", "_strnicmp", &Hook{
+		Parameters: []string{"a:string1", "a:string2", "count"},
+		Fn:         strnicmp,
 	})
 
 }
