@@ -72,6 +72,11 @@ func FileapiHooks(emu *WinEmulator) {
 		Parameters: []string{"a:lpFileName", "lpFindFileData"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
+
+	emu.AddHook("", "FindNextFileA", &Hook{
+		Parameters: []string{"hFindFile", "lpFindFileData"},
+		Fn:         SkipFunctionStdCall(true, 0x0),
+	})
 	emu.AddHook("", "FlushFileBuffers", &Hook{
 		Parameters: []string{"hFile"},
 		Fn:         SkipFunctionStdCall(true, 0x1),

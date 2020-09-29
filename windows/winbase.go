@@ -251,7 +251,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			key := util.ReadASCII(emu.Uc, in.Args[0], int(in.Args[2]))
 			key = strings.Trim(key, "\x00")
 			key = strings.Trim(key, "\u0000")
-
+			key = strings.ToLower(key)
 			var val string
 			for _, data := range emu.Opts.Env {
 				if data.Key == key {
@@ -459,6 +459,11 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "_strnicmp", &Hook{
 		Parameters: []string{"a:string1", "a:string2", "count"},
 		Fn:         strnicmp,
+	})
+
+	emu.AddHook("", "LookupPrivilegeValueA", &Hook{
+		Parameters: []string{"a:lpSystemName", "a:lpName", "lpLuid"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 
 }

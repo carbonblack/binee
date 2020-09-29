@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/carbonblack/binee/util"
@@ -160,6 +161,39 @@ func fputs(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruc
 	out := util.ReadASCII(emu.Uc, bufAddr, 0)
 	handle.Write([]byte(out))
 	return SkipFunctionStdCall(true, uint64(len(out)))
+}
+
+func getenv(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[0:2] == "_w"
+	var key string
+	if wide {
+		key = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		key = util.ReadASCII(emu.Uc, in.Args[0], 0)
+	}
+	key = strings.ToLower(key)
+	var val string
+	for _, data := range emu.Opts.Env {
+		if data.Key == key {
+			val = data.Value
+			break
+		}
+	}
+
+	if val != "" {
+		buf := []byte(val)
+		if wide {
+			buf = append(buf, 0, 0)
+		} else {
+			buf = append(buf, 0)
+		}
+		addr := emu.Heap.Malloc(uint64(len(buf)))
+		if err := emu.Uc.MemWrite(addr, buf); err == nil {
+			return SkipFunctionStdCall(true, addr)(emu, in)
+		}
+	}
+	// set last error to 0xcb
+	return SkipFunctionStdCall(true, 0x0)(emu, in)
 }
 
 func UcrtBase32Hooks(emu *WinEmulator) {
@@ -508,7 +542,7 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "strncmp", &Hook{
 		Parameters: []string{"a:string1", "a:string2", "size"},
 	})
-	emu.AddHook("", "_setmbcp", &Hook{Parameters: []string{"codepage"}})//Fn:SkipFunctionCdecl(true,0),
+	emu.AddHook("", "_setmbcp", &Hook{Parameters: []string{"codepage"}}) //Fn:SkipFunctionCdecl(true,0),
 
 	emu.AddHook("", "_onexit", &Hook{
 		Parameters: []string{"function"},
@@ -518,5 +552,18 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "getchar", &Hook{
 		Fn: SkipFunctionCdecl(true, 0x13),
+	})
+
+	emu.AddHook("", "toupper", &Hook{
+		Parameters: []string{"c:c"},
+		NoLog:      true,
+	})
+	emu.AddHook("", "getenv", &Hook{
+		Parameters: []string{"a:varname"},
+		Fn:         getenv,
+	})
+	emu.AddHook("", "_wgetenv", &Hook{
+		Parameters: []string{"a:varname"},
+		Fn:         getenv,
 	})
 }

@@ -649,7 +649,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "InitializeSListHead", &Hook{Parameters: []string{"ListHead"}})
-	emu.AddHook("", "IsDebuggerPresent", &Hook{Parameters: []string{}, Fn: SkipFunctionStdCall(true, 0x0)})
 	emu.AddHook("", "IsValidCodePage", &Hook{
 		Parameters: []string{"CodePage"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
