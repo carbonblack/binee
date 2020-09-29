@@ -207,11 +207,11 @@ func waitForMultipleObjects(emu *WinEmulator, in *Instruction) bool {
 		} else {
 			threadNumber = binary.LittleEndian.Uint64(handleRaw)
 		}
-		if emu.Scheduler.findThreadyByID(int(threadNumber)) == nil {
+		if emu.Scheduler.findThreadyByID(int(threadNumber)) != nil {
 			//Thread doesn't exist
-			return SkipFunctionStdCall(true, WAIT_FAILED)(emu, in)
+			//A handle may be given for another object, like a process or something.
+			threads = append(threads, threadNumber)
 		}
-		threads = append(threads, threadNumber)
 	}
 	go startWaiting(emu, threads, emu.Scheduler.CurThreadId(), int(duration), waitAll)
 
@@ -733,12 +733,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			emu.Ticks += in.Args[0]
 			return SkipFunctionStdCall(false, 0x0)(emu, in)
-		},
-	})
-	emu.AddHook("", "TerminateProcess", &Hook{
-		Parameters: []string{"hProcess", "uExitCode"},
-		Fn: func(emu *WinEmulator, instr *Instruction) bool {
-			return false
 		},
 	})
 	emu.AddHook("", "TlsAlloc", &Hook{
