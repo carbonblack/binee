@@ -25,7 +25,8 @@ type SHELLEXECUTEINFO struct {
 	HProcess     uint32
 }
 
-func shellExecuteEx(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
+func shellExecuteEx(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
 	addr := in.Args[0]
 	raw, _ := emu.Uc.MemRead(addr, uint64(unsafe.Sizeof(SHELLEXECUTEINFO{})))
 	r := bytes.NewReader(raw)
@@ -33,8 +34,11 @@ func shellExecuteEx(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinE
 	err := binary.Read(r, binary.LittleEndian, sh)
 	if err != nil {
 		fmt.Errorf("couldn't read SHELLEXECUTEINFO")
-		return SkipFunctionStdCall(true, 0)
+		return SkipFunctionStdCall(true, 0)(emu, in)
 	}
+	//resetting the stack done first before adding parameters
+	//as the function SkipFunctionStdCall depends on number of parameters.
+	retVal := SkipFunctionStdCall(true, 1)(emu, in)
 	if wide {
 		in.Hook.Parameters = append(in.Hook.Parameters, "w:lpVerb")
 		in.Hook.Parameters = append(in.Hook.Parameters, "w:lpFile")
@@ -50,7 +54,7 @@ func shellExecuteEx(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinE
 	in.Args = append(in.Args, uint64(sh.LpVerb))
 	in.Args = append(in.Args, uint64(sh.LpFile))
 	in.Args = append(in.Args, uint64(sh.LpParameters))
-	return SkipFunctionStdCall(true, 1)
+	return retVal
 }
 
 func ShellapiHooks(emu *WinEmulator) {
@@ -70,15 +74,11 @@ func ShellapiHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "ShellExecuteExW", &Hook{
 		Parameters: []string{"pExecInfo"},
-		Fn: func(emulator *WinEmulator, in *Instruction) bool {
-			return shellExecuteEx(emu, in, true)(emu, in)
-		},
+		Fn:         shellExecuteEx,
 	})
 	emu.AddHook("", "ShellExecuteExA", &Hook{
 		Parameters: []string{"pExecInfo"},
-		Fn: func(emulator *WinEmulator, in *Instruction) bool {
-			return shellExecuteEx(emu, in, false)(emu, in)
-		},
+		Fn:         shellExecuteEx,
 	})
 
 	emu.AddHook("", "ShellExecuteW", &Hook{
