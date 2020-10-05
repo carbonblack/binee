@@ -1164,6 +1164,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 
 	// update the imports table for the current PE so that imports resolve correctly
 	for _, importInfo := range pe.Imports {
+
 		dllName := importInfo.DllName
 		dll := peMap[dllName]
 		funcName := importInfo.FuncName
@@ -1322,7 +1323,7 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 
 	//Some dlls has to be loaded and they don't cause problems
 	//TODO Take as input
-	loadDlls := []string{"msvcrt.dll"}
+	loadDlls := []string{"msvcrt.dll", "shell32.dll"}
 	mainLoaded := make(map[string]bool)
 	for _, dll := range loadDlls {
 		if actualDll, ok := peMap[dll]; ok {

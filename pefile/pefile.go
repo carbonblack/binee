@@ -515,12 +515,12 @@ func (pe *PeFile) readExports() error {
 	pe.ForwardedExports = make(map[string]ForwardedExport)
 	pe.ForwardedExportsByOrdinal = make(map[uint16]ForwardedExport)
 
+	//Reading named functions
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
 		// seek to index in names table
 		if _, err := r.Seek(int64(namesTableRVA+uint32(i*4)), io.SeekStart); err != nil {
 			return fmt.Errorf("Error seeking %s for exports names table: %v", pe.Path, err)
 		}
-
 		exportAddressTable := ExportAddressTable{}
 		if err := binary.Read(r, binary.LittleEndian, &exportAddressTable); err != nil {
 			return fmt.Errorf("Error retrieving %s exports address table: %v", pe.Path, err)
@@ -528,7 +528,6 @@ func (pe *PeFile) readExports() error {
 
 		name := ReadString(section.Raw[exportAddressTable.Rva-section.VirtualAddress:])
 
-		// get first Name in array
 		ordinal = binary.LittleEndian.Uint16(section.Raw[ordinalsTableRVA+uint32(i*2) : ordinalsTableRVA+uint32(i*2)+2])
 
 		// seek to ordinals table
@@ -561,20 +560,60 @@ func (pe *PeFile) readExports() error {
 				}
 			} else {
 				funcName = split[1]
-
 			}
 			forwardedExport := ForwardedExport{strings.ToLower(split[0]), funcName, uint16(ordinalNum)}
 			if ordinalNum == 0 {
 				pe.ForwardedExports[name] = forwardedExport
 			} else {
-				pe.ForwardedExportsByOrdinal[uint16(ordinalNum)] = forwardedExport
+				pe.ForwardedExportsByOrdinal[ordinal] = forwardedExport
 			}
 			continue
 		}
 		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase) - 1, rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
-		pe.ExportOrdinalMap[int(ordinal)+int(exportDirectory.OrdinalBase)-1] = export
+		pe.ExportOrdinalMap[int(ordinal)] = export
+	}
+	//Reading non named functions
+	for i := 0; i < int(exportDirectory.NumberOfFunctions); i++ {
+		//Check if exists. (its a named function)
+		if _, ok := pe.ExportOrdinalMap[i+int(exportDirectory.OrdinalBase)]; ok {
+			continue
+		}
+		if _, err := r.Seek(int64(uint32(i)*4+exportDirectory.FunctionsRva-section.VirtualAddress), io.SeekStart); err != nil {
+			return fmt.Errorf("Error seeking %s ordinals table: %v", pe.Path, err)
+		}
+		// get ordinal address table
+		var rva uint32
+		if err := binary.Read(r, binary.LittleEndian, &rva); err != nil {
+			return fmt.Errorf("Error retrieving %s ordinals table: %v", pe.Path, err)
+		}
+
+		if rva < exportsRva+size && rva > exportsRva {
+			//Its in the range of exports, its forwarded.
+			if _, err := r.Seek(int64(rva-exportsRva), io.SeekStart); err != nil {
+				return fmt.Errorf("Error seeking forwarded name for exports names table: %v", err)
+			}
+			forwardedExportRaw := ReadString(section.Raw[rva-section.VirtualAddress:])
+			split := strings.Split(forwardedExportRaw, ".")
+			ordinalNum := 0
+			funcName := ""
+			var err error
+			if split[1][0] == '#' {
+				numStr := split[1][1:]
+				if ordinalNum, err = strconv.Atoi(numStr); err != nil {
+					return err
+				}
+			} else {
+				funcName = split[1]
+			}
+			forwardedExport := ForwardedExport{strings.ToLower(split[0]), funcName, uint16(ordinalNum)}
+			pe.ForwardedExportsByOrdinal[uint16(i+int(exportDirectory.OrdinalBase))] = forwardedExport
+			continue
+		}
+		export := &Export{"", ordinal + uint16(exportDirectory.OrdinalBase), rva}
+		pe.Exports = append(pe.Exports, export)
+		pe.ExportOrdinalMap[int(ordinal)+int(exportDirectory.OrdinalBase)] = export
 	}
 
 	return nil
