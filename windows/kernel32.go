@@ -381,7 +381,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "GetModuleFileNameA", &Hook{
-		Parameters: []string{"hModule", "lpFilename", "nSize"},
+		Parameters: []string{"hModule", "a:lpFilename", "nSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			f := ""
 			if in.Args[0] == 0x0 {
@@ -395,7 +395,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "GetModuleFileNameW", &Hook{
-		Parameters: []string{"hModule", "lpFilename", "nSize"},
+		Parameters: []string{"hModule", "w:lpFilename", "nSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			f := ""
 			if in.Args[0] == 0x0 {

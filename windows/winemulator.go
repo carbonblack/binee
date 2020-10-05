@@ -333,7 +333,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Opts.Env = append(emu.Opts.Env, Env{"USERDOMAIN_ROAMINGPROFILE", emu.Opts.ComputerName})
 	emu.Opts.Env = append(emu.Opts.Env, Env{"USERNAME", emu.Opts.User})
 	emu.Opts.Env = append(emu.Opts.Env, Env{"USERPROFILE", "C:\\Users\\" + emu.Opts.User})
-	emu.Opts.Env = append(emu.Opts.Env, Env{"windir", "C:\\Windows"})
+	emu.Opts.Env = append(emu.Opts.Env, Env{"WINDIR", "C:\\Windows"})
 	emu.Opts.Env = append(emu.Opts.Env, Env{"COMSPEC", "C:\\Windows\\system32\\cmd.exe"})
 
 	//

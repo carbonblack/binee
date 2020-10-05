@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/carbonblack/binee/util"
@@ -14,9 +13,9 @@ import (
 func sprintf(emu *WinEmulator, in *Instruction, wide bool) {
 	var format string
 	if wide {
-		format = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+		format = util.ReadWideChar(emu.Uc, in.Args[1], 0)
 	} else {
-		format = util.ReadASCII(emu.Uc, in.Args[0], 0)
+		format = util.ReadASCII(emu.Uc, in.Args[1], 0)
 	}
 	parameters := util.ParseFormatter(format)
 	var startAddr uint64
@@ -27,7 +26,7 @@ func sprintf(emu *WinEmulator, in *Instruction, wide bool) {
 		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
 	}
 	//Jump 2 entries
-	startAddr += 2 * emu.PtrSize
+	startAddr += 3 * emu.PtrSize
 	in.VaArgsParse(startAddr, parameters)
 	in.FmtToParameters(parameters)
 }
@@ -171,7 +170,7 @@ func getenv(emu *WinEmulator, in *Instruction) bool {
 	} else {
 		key = util.ReadASCII(emu.Uc, in.Args[0], 0)
 	}
-	key = strings.ToLower(key)
+
 	var val string
 	for _, data := range emu.Opts.Env {
 		if data.Key == key {
@@ -189,11 +188,11 @@ func getenv(emu *WinEmulator, in *Instruction) bool {
 		}
 		addr := emu.Heap.Malloc(uint64(len(buf)))
 		if err := emu.Uc.MemWrite(addr, buf); err == nil {
-			return SkipFunctionStdCall(true, addr)(emu, in)
+			return SkipFunctionCdecl(true, addr)(emu, in)
 		}
 	}
 	// set last error to 0xcb
-	return SkipFunctionStdCall(true, 0x0)(emu, in)
+	return SkipFunctionCdecl(true, 0x0)(emu, in)
 }
 
 func UcrtBase32Hooks(emu *WinEmulator) {
@@ -286,6 +285,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "_execute_onexit_table", &Hook{Parameters: []string{"table"}})
 	emu.AddHook("", "_get_initial_narrow_environment", &Hook{Parameters: []string{}, Fn: SkipFunctionStdCall(false, 0)})
 	emu.AddHook("", "_initialize_onexit_table", &Hook{Parameters: []string{"table"}})
+	emu.AddHook("", "_o__initialize_onexit_table", &Hook{
+		Parameters: []string{"table"},
+		Fn:         SkipFunctionCdecl(true, 0)})
+
 	emu.AddHook("", "_invalid_parameter_noinfo", &Hook{Parameters: []string{}})
 	emu.AddHook("", "_invalid_parameter_noinfo_noreturn", &Hook{Parameters: []string{}})
 	emu.AddHook("", "_initterm_e", &Hook{Parameters: []string{"PVFV", "PVFV"}, Fn: SkipFunctionCdecl(true, 0)})
@@ -558,6 +561,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		Parameters: []string{"c:c"},
 		NoLog:      true,
 	})
+	emu.AddHook("", "tolower", &Hook{
+		Parameters: []string{"c:c"},
+		NoLog:      true,
+	})
 	emu.AddHook("", "getenv", &Hook{
 		Parameters: []string{"a:varname"},
 		Fn:         getenv,
@@ -565,5 +572,9 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "_wgetenv", &Hook{
 		Parameters: []string{"a:varname"},
 		Fn:         getenv,
+	})
+	emu.AddHook("", "_isleadbyte_l", &Hook{
+		Parameters: []string{"c"},
+		NoLog:      true,
 	})
 }

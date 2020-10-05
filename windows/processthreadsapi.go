@@ -180,4 +180,12 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"hProcess"},
 		Fn:         SkipFunctionStdCall(true, 0),
 	})
+
+	//Threadpool
+
+	emu.AddHook("", "CreateThreadpoolTimer", &Hook{
+		Parameters: []string{"pfnti", "pv", "pcbe"},
+		Fn:         SkipFunctionStdCall(true, 0x1337),
+	})
+
 }

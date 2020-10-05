@@ -243,7 +243,7 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "RtlQueryHeapInformation", &Hook{
 		Parameters: []string{"HeapHandle", "HeapInformationClass", "HeapInformation", "HeapInformationLength", "ReturnLength"},
 	})
-	emu.AddHook("", "RtlSetLastWin32Error", &Hook{Parameters: []string{"err"}})
+	emu.AddHook("", "RtlSetLastWin32Error", &Hook{Parameters: []string{"err"}, NoLog: true})
 	emu.AddHook("", "RtlSetUnhandledExceptionFilter", &Hook{
 		Parameters: []string{"lpTopLevelExceptionFilter"},
 	})
@@ -302,6 +302,7 @@ func NtdllHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "RtlInitializeCriticalSection", &Hook{
 		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 	emu.AddHook("", "RtlDeleteCriticalSection", &Hook{
 		Parameters: []string{"lpCriticalSection"},
@@ -371,5 +372,33 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "RtlQueryPerformanceCounter", &Hook{
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(false, ERROR_SUCCESS),
+	})
+
+	emu.AddHook("", "RtlInitializeSListHead", &Hook{
+		Parameters: []string{"ListHead"},
+	})
+
+	emu.AddHook("", "RtlRunOnceInitialize", &Hook{
+		Parameters: []string{"RunOnce"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	//Event To Windows
+	emu.AddHook("", "EtwRegisterTraceGuidsW", &Hook{
+		Parameters: []string{"RequestAddress", "RequestContext", "ControlGuid", "GuidCount", "TraceGuidReg", "w:MofImagePath", "w:ResourceName", "RegistrationHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+	emu.AddHook("", "EtwEventRegister", &Hook{
+		Parameters: []string{"ProviderId", "EnableCallback", "CallbackContext", "RegHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+
+	emu.AddHook("", "EtwNotificationRegister", &Hook{
+		Parameters: []string{"Guid", "Type", "callback", "Context", "RegHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+	emu.AddHook("", "EtwEventSetInformation", &Hook{
+		Parameters: []string{"_", "_", "_", "_", "_"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 }
