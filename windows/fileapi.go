@@ -2,11 +2,117 @@ package windows
 
 import (
 	"encoding/binary"
+	"math"
+	"path/filepath"
+	"strings"
 
 	"github.com/carbonblack/binee/util"
 )
 
-//import "fmt"
+type FindFileHandle struct {
+	NumberOfFiles uint64
+	FileNames     []string
+	Index         uint64
+}
+type FILETIME struct {
+	DwLowDateTime  uint32
+	DwHighDateTime uint32
+}
+type _WIN32_FIND_DATAA struct {
+	DwFileAttributes   uint32
+	FtCreationTime     FILETIME
+	FtLastAccessTime   FILETIME
+	FtLastWriteTime    FILETIME
+	NFileSizeHigh      uint32
+	NFileSizeLow       uint32
+	dwReserved1        uint32
+	dwReserved2        uint32
+	CFileName          [260]byte
+	CAlternateFileName [14]byte
+	DwFileType         uint32
+	DwCreatorType      uint32
+	wFinderFlags       uint16
+}
+
+func findFirstFile(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	fileName := ""
+	if wide {
+		fileName = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		fileName = util.ReadASCII(emu.Uc, in.Args[0], 0)
+	}
+
+	temp := strings.Replace(fileName, "c:", emu.Opts.Root, 1)
+	temp = strings.Replace(temp, "C:", emu.Opts.Root, 1)
+	temp = strings.Replace(temp, "\\", "/", -1)
+	path := filepath.Clean(temp)
+	matches, _ := filepath.Glob(path)
+	fileNames := make([]string, len(matches))
+	path, _ = filepath.Split(fileName)
+	for i := range matches {
+		_, foundFile := filepath.Split(matches[i])
+		fileNames[i] = foundFile
+	}
+	findFileHandleStruct := &FindFileHandle{
+		NumberOfFiles: uint64(len(matches)),
+		FileNames:     fileNames,
+		Index:         1,
+	}
+	findFileHandle := &Handle{
+		Object: findFileHandleStruct,
+	}
+
+	var cFileName [260]byte
+	copy(cFileName[0:259], fileNames[0])
+	length := math.Min(float64(len(fileNames[0])), 259)
+	cFileName[int(length)] = 0
+	findData := _WIN32_FIND_DATAA{
+		DwFileAttributes: 0x80, //Normal
+		CFileName:        cFileName,
+	}
+	if err := util.StructWrite(emu.Uc, in.Args[1], findData); err != nil {
+		return SkipFunctionStdCall(true, uint64(INVALID_HANDLE_32))(emu, in)
+	}
+	handleAddr := emu.Heap.Malloc(4)
+	emu.Handles[handleAddr] = findFileHandle
+	return SkipFunctionStdCall(true, handleAddr)(emu, in)
+}
+
+func findNextFile(emu *WinEmulator, in *Instruction) bool {
+	handleVal := in.Args[0]
+	handle, ok := emu.Handles[handleVal]
+	if !ok {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	var findFileHandle *FindFileHandle
+	findFileHandle, ok = handle.Object.(*FindFileHandle)
+	if !ok {
+		emu.setLastError(ERROR_INVALID_HANDLE)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+
+	index := findFileHandle.Index
+	if index == findFileHandle.NumberOfFiles {
+		return SkipFunctionStdCall(true, 0x0)(emu, in)
+	}
+	fileName := findFileHandle.FileNames[index]
+	findFileHandle.Index += 1
+
+	var cFileName [260]byte
+	copy(cFileName[0:259], fileName)
+	length := math.Min(float64(len(fileName)), 259)
+	cFileName[int(length)] = 0
+	findData := _WIN32_FIND_DATAA{
+		DwFileAttributes: 0x80, //Normal
+		CFileName:        cFileName,
+	}
+	if err := util.StructWrite(emu.Uc, in.Args[1], findData); err != nil {
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+	return SkipFunctionStdCall(true, 1)(emu, in)
+}
 func getVolumeInformation(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
 	/*The function depends on the given parameters to know what is requested,
 	  nulled input means its not required */
@@ -70,12 +176,12 @@ func FileapiHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "FindFirstFileA", &Hook{
 		Parameters: []string{"a:lpFileName", "lpFindFileData"},
-		Fn:         SkipFunctionStdCall(true, 0x1),
+		Fn:         findFirstFile,
 	})
 
 	emu.AddHook("", "FindNextFileA", &Hook{
 		Parameters: []string{"hFindFile", "lpFindFileData"},
-		Fn:         SkipFunctionStdCall(true, 0x0),
+		Fn:         findNextFile,
 	})
 	emu.AddHook("", "FlushFileBuffers", &Hook{
 		Parameters: []string{"hFile"},

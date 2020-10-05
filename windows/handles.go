@@ -19,6 +19,7 @@ type Handle struct {
 	ResourceDataEntry *pefile.ResourceDataEntry
 	Snapshot          *Snapshot
 	Process           *Process
+	Object            interface{}
 }
 
 func (handle *Handle) Close() {
