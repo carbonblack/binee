@@ -569,10 +569,10 @@ func (pe *PeFile) readExports() error {
 			}
 			continue
 		}
-		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase) - 1, rva}
+		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase), rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
-		pe.ExportOrdinalMap[int(ordinal)] = export
+		pe.ExportOrdinalMap[int(ordinal+uint16(exportDirectory.OrdinalBase))] = export
 	}
 	//Reading non named functions
 	for i := 0; i < int(exportDirectory.NumberOfFunctions); i++ {
