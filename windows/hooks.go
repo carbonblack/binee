@@ -344,6 +344,10 @@ func (i *Instruction) StringHook() string {
 
 		if len(i.Hook.Parameters[j]) < 2 {
 			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+
+			if j != len(i.Args)-1 {
+				ret += fmt.Sprintf(", ")
+			}
 			continue
 		}
 
