@@ -2,14 +2,52 @@ package windows
 
 import "github.com/carbonblack/binee/util"
 
+type ProcessInformation struct {
+	hprocess    uint32
+	hThread     uint32
+	dwProcessId uint32
+	dwThreadId  uint32
+}
+
+func createProcess(emu *WinEmulator, in *Instruction) bool {
+	stub := make(map[string]interface{})
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	var applicationName, commandLine string
+	if wide {
+		applicationName = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+		commandLine = util.ReadWideChar(emu.Uc, in.Args[1], 0)
+	} else {
+		applicationName = util.ReadASCII(emu.Uc, in.Args[0], 0)
+		commandLine = util.ReadASCII(emu.Uc, in.Args[1], 0)
+	}
+
+	stub["szExeFile"] = applicationName + commandLine
+	stub["dwFlags"] = uint32(in.Args[5])
+	processInfo := &ProcessInformation{}
+	emu.ProcessManager.startProcess(stub)
+	process := emu.ProcessManager.processMap[uint32(emu.ProcessManager.numberOfProcesses)-1]
+	procHandle := &Handle{
+		Process: &process,
+	}
+	handleAddr := emu.Heap.Malloc(4)
+	emu.Handles[handleAddr] = procHandle
+	processInfo.hprocess = uint32(handleAddr)
+	processInfo.dwProcessId = process.the32ProcessID
+	processInfo.dwThreadId = 1337
+	processInfo.hThread = uint32(emu.Heap.Malloc(4))
+	util.StructWrite(emu.Uc, in.Args[9], processInfo)
+
+	return SkipFunctionStdCall(true, 1)(emu, in)
+}
+
 func ProcessthreadsapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "CreateProcessA", &Hook{
 		Parameters: []string{"a:lpApplicationName", "a:lpCommandLine", "lpProcessAttributes", "lpThreadAttributes", "bInheritHandles", "dwCreationFlags", "lpEnvironment", "lpCurrentDirectory", "lpStartupInfo", "lpProcessInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x1),
+		Fn:         createProcess,
 	})
 	emu.AddHook("", "CreateProcessW", &Hook{
 		Parameters: []string{"w:lpApplicationName", "w:lpCommandLine", "lpProcessAttributes", "lpThreadAttributes", "bInheritHandles", "dwCreationFlags", "lpEnvironment", "lpCurrentDirectory", "lpStartupInfo", "lpProcessInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x1),
+		Fn:         createProcess,
 	})
 	emu.AddHook("", "CreateProcessAsUserA", &Hook{
 		Parameters: []string{"hToken", "a:lpApplicationName", "a:lpCommandLine", "lpProcessAttributes", "lpThreadAttributes", "bInheritHandles", "dwCreationFlags", "lpEnvironment", "lpCurrentDirectory", "lpStartupInfo", "lpProcessInformation"},
