@@ -295,4 +295,15 @@ func FileapiHooks(emu *WinEmulator) {
 			return getVolumeInformation(emu, in, true)(emu, in)
 		},
 	})
+
+	emu.AddHook("", "SetFileAttributesA", &Hook{
+		Parameters: []string{"a:lpFileName", "dwFileAttributes"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
+	emu.AddHook("", "CopyFileA", &Hook{
+		Parameters: []string{"a:lpExistingFileName", "a:lpNewFileName", "bFailIfExists"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
+
 }

@@ -62,6 +62,7 @@ func (emu *WinEmulator) LoadHooks() {
 	IOapisetHooks(emu)
 	SecuritybaseHooks(emu)
 	WinsockHooks(emu)
+	IphlpapiHooks(emu)
 }
 func (emu *WinEmulator) SetupHooks() error {
 	emu.Uc.HookAdd(uc.HOOK_CODE, HookCode(emu), 1, 0)
