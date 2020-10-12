@@ -20,7 +20,9 @@ func createProcess(emu *WinEmulator, in *Instruction) bool {
 		applicationName = util.ReadASCII(emu.Uc, in.Args[0], 0)
 		commandLine = util.ReadASCII(emu.Uc, in.Args[1], 0)
 	}
-
+	if (applicationName+commandLine) == "" || in.Args[9] == 0 || in.Args[8] == 0 { // params are not right
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
 	stub["szExeFile"] = applicationName + commandLine
 	stub["dwFlags"] = uint32(in.Args[5])
 	processInfo := &ProcessInformation{}
