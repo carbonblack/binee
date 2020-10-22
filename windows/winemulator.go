@@ -110,6 +110,8 @@ type WinEmulator struct {
 	GenerateFacts   bool
 	GlobalVariables GlobalVariables
 	NumMainCallDll  uint //number of dlls whose main are called.
+	startTime       time.Time
+	maxTime         int
 }
 
 //Reference
@@ -159,6 +161,7 @@ type WinEmulatorOptions struct {
 	MaxTicks      int64
 	LogType       int
 	GenerateFacts bool
+	MaxTime       int
 }
 
 // InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
@@ -206,6 +209,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Timestamp = time.Now().Unix()
 	emu.Ticks = 1
 	emu.maxTicks = uint64(options.MaxTicks)
+	emu.maxTime = options.MaxTime
 	emu.logType = options.LogType
 	// log instructions only if the flag is set
 	if emu.logType == LogTypeSlice {
@@ -284,8 +288,9 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Opts.KeyboardType = 0x7
 	emu.Opts.KeyboardSubType = 0x0
 	emu.Opts.KeyboardFuncKeys = 0xc
-	emu.Opts.OsMajorVersion = 0x0004
-	emu.Opts.OsMinorVersion = 0x0
+	emu.Opts.OsMajorVersion = 0x5
+	emu.Opts.OsMinorVersion = 0x1
+	emu.Opts.PlatformID = 0x2
 	emu.Opts.ProcessorsCount = 1
 	emu.Opts.ProcessorType = 0x24a
 	emu.Opts.ProcessorLevel = 0x6

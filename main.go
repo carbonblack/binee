@@ -29,6 +29,7 @@ func main() {
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
 	maxTicks := flag.Int64("t", 0, "maximum number of instructions to emulate before stopping emulation, default is 0 and will run forever or until other stopping event")
 	generateFacts := flag.Bool("facts", false, "generate facts")
+	maxTimeMinutes := flag.Int("timem", 0, "maximum time to emulate before stopping emulation in minutes.")
 	flag.Parse()
 
 	verboseLevel := 0
@@ -154,6 +155,7 @@ func main() {
 	options.ShowDLL = *showDLL
 	options.RunDLLMain = *runDLLMain
 	options.GenerateFacts = *generateFacts
+	options.MaxTime = *maxTimeMinutes
 	if *outputJSON {
 		options.LogType = windows.LogTypeJSON
 	} else if *instructionLog {
