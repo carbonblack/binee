@@ -152,7 +152,49 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "CreateRemoteThread", &Hook{
 		Parameters: []string{"hProcess", "lpThreadAttributes", "dwStackSize", "lpParameter", "lpStartAddress", "dwCreationFlags", "lpThreadId"},
-		Fn:         SkipFunctionStdCall(true, emu.Heap.Malloc(10)),
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			// checking the proc handle exists
+			stub := make(map[string]interface{})
+			currentProcId := emu.ProcessManager.currentPid
+			hproc := &Handle{}
+			hproc = emu.Handles[in.Args[0]]
+			if hproc == nil {
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			ownerProcessID := hproc.Process.the32ProcessID
+			stackSize := uint64(1 * 1024 * 1024)
+			if in.Args[1] != 0x0 {
+				stackSize = in.Args[1]
+			}
+			lpParameter := in.Args[3]
+			//stack should start at the top of the newly allocated space on the heap
+			stackAddress := emu.Heap.Malloc(stackSize) + stackSize - 0x20
+			lpStartAddress := in.Args[4]
+			dwCreationFlags := in.Args[5]
+			stub["creatorProcessID"] = currentProcId
+			stub["lpParameter"] = lpParameter
+			stub["stackAddress"] = stackAddress
+			stub["stackSize"] = stackSize
+			stub["lpStartAddress"] = lpStartAddress
+			stub["ownerProcessID"] = ownerProcessID
+			stub["dwCreationFlags"] = dwCreationFlags
+
+			//create new ThreadContext
+			remotethreadid := emu.ProcessManager.startRemoteThread(stub)
+			if remotethreadid < 0xca7 {
+				//Todo the dummy process
+			}
+			remoteThread := emu.ProcessManager.remoteThreadMap[uint32(len(emu.ProcessManager.remoteThreadMap))-1]
+			remoteThreadHandle := &Handle{
+				RemoteThreads: &remoteThread,
+			}
+			handleAddr := emu.Heap.Malloc(4)
+			emu.Handles[handleAddr] = remoteThreadHandle
+			// write thread ID back to pointer lpThreadId
+			util.PutPointer(emu.Uc, emu.PtrSize, in.Args[6], uint64(remoteThreadHandle.RemoteThreads.remoteThreadID))
+
+			return SkipFunctionStdCall(true, handleAddr)(emu, in)
+		},
 	})
 
 	emu.AddHook("", "ResumeThread", &Hook{

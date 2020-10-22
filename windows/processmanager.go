@@ -11,6 +11,9 @@ type ProcessManager struct {
 	processList       []Process
 	processMap        map[uint32]Process
 	currentPid        uint32
+	remoteThreadMap   map[uint32]RemoteThread
+	atomicRThreadNum  uint32 //base number for remote thread ids 0xca7
+
 }
 type Process struct {
 	dwSize              uint32
@@ -23,7 +26,25 @@ type Process struct {
 	pcPriClassBase      int32
 	dwFlags             uint32
 	szExeFile           [260]byte
+
 	//Other features might be added
+	remoteThreadIds []uint32
+}
+type RemoteThread struct {
+	remoteThreadID   uint32
+	ownerProcessID   uint32
+	creatorProcessID uint32
+	dwCreationFlags  uint32
+	lpStartAddress   uint32
+	lpParameter      uint32
+	dwStackSize      uint32
+	currentState     byte
+	stackAddress     uint32
+	stackSize        uint32
+	//lpThreadAttributes	uint32 //
+
+	//thread 				Thread   // todo for future development
+
 }
 
 func InitializeProcessManager(addStub bool) *ProcessManager {
@@ -848,4 +869,56 @@ func (p *ProcessManager) startProcess(parameters map[string]interface{}) bool {
 	p.numberOfProcesses++
 	p.processList = append(p.processList, newProcess)
 	return true
+}
+
+func (p *ProcessManager) startRemoteThread(parameters map[string]interface{}) uint32 {
+
+	remoteThread := RemoteThread{}
+	for parameter, value := range parameters {
+
+		switch parameter {
+		case "dwCreationFlags":
+			remoteThread.dwCreationFlags = value.(uint32)
+			continue
+		case "lpParameter":
+			remoteThread.lpParameter = value.(uint32)
+			continue
+		case "creatorProcessID":
+			remoteThread.creatorProcessID = value.(uint32)
+			continue
+		case "ownerProcessID":
+			remoteThread.ownerProcessID = value.(uint32)
+			continue
+		case "lpStartAddress":
+			remoteThread.lpStartAddress = value.(uint32)
+			continue
+		case "stackSize":
+			remoteThread.dwStackSize = value.(uint32)
+		case "stackAddress":
+			remoteThread.stackAddress = value.(uint32)
+
+		default:
+			fmt.Errorf("specified parameter [%s] not supported", parameter)
+		}
+
+	}
+
+	if p.atomicRThreadNum > 0xca7+1000000 { //max range of remote threads IDs
+		p.atomicRThreadNum = 0xca7
+	}
+	remoteThread.remoteThreadID = p.atomicRThreadNum
+	remoteThread.currentState = byte(remoteThread.dwCreationFlags) & 0x04
+
+	if ownerProcess, exists := p.processMap[remoteThread.ownerProcessID]; exists {
+		p.remoteThreadMap[p.atomicRThreadNum] = remoteThread
+		ownerProcess.remoteThreadIds = append(ownerProcess.remoteThreadIds, remoteThread.remoteThreadID)
+
+	} else {
+		//Todo Create Dummy Process
+		remoteThread.remoteThreadID = 0xca6 //id for dummy thread
+	}
+	p.atomicRThreadNum += 1
+
+	return remoteThread.remoteThreadID
+
 }
