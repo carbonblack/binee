@@ -466,4 +466,12 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0),
 	})
 
+	emu.AddHook("", "GlobalFree", &Hook{
+		Parameters: []string{"hMem"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+	emu.AddHook("", "_mbtowc_l", &Hook{
+		Parameters: []string{"wchar", "mbchar", "count"},
+		NoLog:      true,
+	})
 }

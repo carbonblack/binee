@@ -30,6 +30,36 @@ func sprintf(emu *WinEmulator, in *Instruction, wide bool) {
 	in.VaArgsParse(startAddr, parameters)
 	in.FmtToParameters(parameters)
 }
+
+//int swprintf(
+//   wchar_t *buffer,
+//   size_t count,
+//   const wchar_t *format [,
+//   argument]...
+//);
+
+func swprintf(emu *WinEmulator, in *Instruction) bool {
+	format := util.ReadWideChar(emu.Uc, in.Args[1], 0)
+	parameters := util.ParseFormatter(format)
+	for i, v := range parameters {
+		if v == "s" {
+			parameters[i] = "S"
+		}
+	}
+	var startAddr uint64
+	//Get stack address
+	if emu.PtrSize == 4 {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	} else {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	}
+	//Jump 3 entries
+	startAddr += 3 * emu.PtrSize
+	in.VaArgsParse(startAddr, parameters)
+	in.FmtToParameters(parameters)
+	return true
+}
+
 func printf(emu *WinEmulator, in *Instruction) bool {
 	wide := in.Hook.Name[0] == 'w'
 	var format string
@@ -494,11 +524,8 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "swprintf", &Hook{
-		Parameters: []string{"buffer", "count", "w:format"},
-		Fn: func(emulator *WinEmulator, in *Instruction) bool {
-			sprintf(emu, in, true)
-			return true
-		},
+		Parameters: []string{"buffer", "w:format"},
+		Fn:         swprintf,
 	})
 
 	emu.AddHook("", "strcat", &Hook{
@@ -576,5 +603,9 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "_isleadbyte_l", &Hook{
 		Parameters: []string{"c"},
 		NoLog:      true,
+	})
+
+	emu.AddHook("", "atof", &Hook{
+		Parameters: []string{"w:string"},
 	})
 }
