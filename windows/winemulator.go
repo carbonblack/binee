@@ -38,6 +38,7 @@ type WinOptions struct {
 	KeyboardFuncKeys   int               `yaml:"keyboard_funckeys"`
 	OsMajorVersion     int               `yaml:"os_major_version"`
 	OsMinorVersion     int               `yaml:"os_minor_version"`
+	PlatformID         int               `yaml:"platform_id"`
 	ProcessorsCount    int               `yaml:"processors_count"`
 	ProcessorType      int               `yaml:"processsor_type"`
 	ProcessorLevel     int               `yaml:"processor_level"`

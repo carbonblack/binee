@@ -254,7 +254,7 @@ func WinbaseHooks(emu *WinEmulator) {
 			key = strings.ToLower(key)
 			var val string
 			for _, data := range emu.Opts.Env {
-				if data.Key == key {
+				if strings.ToLower(data.Key) == key {
 					val = data.Value
 					break
 				}
@@ -365,7 +365,7 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         FindResource,
 	})
 	emu.AddHook("", "FindResourceW", &Hook{
-		Parameters: []string{"hModule", "a:lpName", "a:lpType"},
+		Parameters: []string{"hModule", "a:lpName", "w:lpType"},
 		Fn:         FindResource,
 	})
 

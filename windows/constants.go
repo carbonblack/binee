@@ -15,6 +15,8 @@ const (
 	ERROR_INSUFFICIENT_BUFFER = 0x7a
 	ERROR_MORE_DATA           = 0xea
 	ERROR_NO_MORE_ITEMS       = 0x103
+	ERROR_INVALID_ADDRESS     = 0x1E7
+
 	//
 	REG_NONE      = 0x0
 	REG_SZ        = 0x1
