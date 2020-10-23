@@ -73,7 +73,9 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 
 	//if file is open for writing, do all writes in temp folder
 	if access&GENERIC_WRITE == GENERIC_WRITE {
-		fd.Path = "temp/" + path
+		path = strings.Replace(path, ":", "_", -1)
+		fd.Path = filepath.Clean(filepath.Join("temp", path))
+		os.MkdirAll(filepath.Dir(fd.Path), 0755)
 		fd.File, err = os.OpenFile(fd.Path, os.O_RDWR|os.O_CREATE, 0755)
 	} else if strings.Contains(path, filepath.Base(emu.Binary)) {
 		fd.Path = emu.Binary

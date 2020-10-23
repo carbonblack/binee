@@ -218,6 +218,70 @@ func waitForMultipleObjects(emu *WinEmulator, in *Instruction) bool {
 	return SkipFunctionStdCall(true, 1)(emu, in) //We don't really care about the return here, we change it anyway.
 }
 
+func getVersionEx(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	lpVersionInfo := in.Args[0]
+	if lpVersionInfo == 0 {
+		emu.setLastError(ERROR_INVALID_ADDRESS)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+
+	if wide {
+		type OsVersionInfoW struct {
+			DwOsVersionInfoSize uint32
+			DwMajorVersion      uint32
+			DwMinorVersion      uint32
+			DwBuildNumber       uint32
+			DwPlatformId        uint32
+			SzCSDVersion        [128 * 2]byte
+		}
+		osVersionInfo := &OsVersionInfoW{}
+		osVersionInfoInterface, err := util.StructRead(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err != nil {
+			emu.setLastError(ERROR_INVALID_ADDRESS)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo = osVersionInfoInterface.(*OsVersionInfoW)
+		if osVersionInfo.DwOsVersionInfoSize != uint32(binary.Size(OsVersionInfoW{})) {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo.DwMajorVersion = uint32(emu.Opts.OsMajorVersion)
+		osVersionInfo.DwMinorVersion = uint32(emu.Opts.OsMinorVersion)
+		osVersionInfo.DwPlatformId = uint32(emu.Opts.PlatformID)
+		err = util.StructWrite(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err == nil {
+			return SkipFunctionStdCall(true, uint64(binary.Size(OsVersionInfoW{})))(emu, in)
+		}
+	} else {
+		type OsVersionInfo struct {
+			DwOsVersionInfoSize uint32
+			DwMajorVersion      uint32
+			DwMinorVersion      uint32
+			DwBuildNumber       uint32
+			DwPlatformId        uint32
+			SzCSDVersion        [128]byte
+		}
+		osVersionInfo := &OsVersionInfo{}
+		osVersionInfoInterface, err := util.StructRead(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err != nil {
+			emu.setLastError(ERROR_INVALID_ADDRESS)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo = osVersionInfoInterface.(*OsVersionInfo)
+		if osVersionInfo.DwOsVersionInfoSize != uint32(binary.Size(OsVersionInfo{})) {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo.DwMajorVersion = uint32(emu.Opts.OsMajorVersion)
+		osVersionInfo.DwMinorVersion = uint32(emu.Opts.OsMinorVersion)
+		osVersionInfo.DwPlatformId = uint32(emu.Opts.PlatformID)
+		err = util.StructWrite(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err == nil {
+			return SkipFunctionStdCall(true, uint64(binary.Size(OsVersionInfo{})))(emu, in)
+		}
+	}
+	return SkipFunctionStdCall(true, 0)(emu, in)
+}
+
 func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "CloseHandle", &Hook{Parameters: []string{"hObject"}, Fn: SkipFunctionStdCall(true, 0x1)})
 	emu.AddHook("", "CreateEventW", &Hook{
@@ -601,24 +665,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x0)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetVersion", &Hook{
-		Parameters: []string{},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			var ret = 0x0
-			ret = ret | emu.Opts.OsMajorVersion
-			ret = ret << 16
-			ret = ret | emu.Opts.OsMinorVersion
-			return SkipFunctionStdCall(true, uint64(ret))(emu, in)
-		},
-	})
-	emu.AddHook("", "GetVersionExA", &Hook{
-		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
-	})
-	emu.AddHook("", "GetVersionExW", &Hook{
-		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
-	})
+
 	emu.AddHook("", "GetWindowsDirectoryA", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -791,39 +838,13 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "_CorExeMain", &Hook{Parameters: []string{}})
-	emu.AddHook("", "GetCPHashNode", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetCPHashNode", &Hook{
+		Parameters: []string{"", ""},
+	})
 	emu.AddHook("", "GetCPFileNameFromRegistry", &Hook{Parameters: []string{"CodePage", "w:FileName", "FileNameSize"}})
 
-	emu.AddHook("", "MultiByteToWideChar", &Hook{
-		Parameters: []string{"CodePage", "dwFlags", "a:lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
-
-			// check if multibyte function is only getting buffer size
-			if in.Args[5] == 0x0 {
-				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
-			} else {
-				wc := util.ASCIIToWinWChar(mb)
-				emu.Uc.MemWrite(in.Args[4], wc)
-				return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
-			}
-		},
-	})
 	emu.AddHook("", "NlsValidateLocale", &Hook{Parameters: []string{"*Unknown*"}})
 	emu.AddHook("", "PathCchRemoveFileSpec", &Hook{Parameters: []string{"pszPath", "cchPath"}})
-	emu.AddHook("", "WideCharToMultiByte", &Hook{
-		Parameters: []string{"CodePage", "dwFlags", "w:lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
-
-			// check if multibyte function is only getting buffer size
-			if in.Args[5] == 0x0 {
-				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
-			} else {
-				return SkipFunctionStdCall(true, 0x1)(emu, in)
-			}
-		},
-	})
 
 	emu.AddHook("", "WaitForMultipleObjects", &Hook{
 		Parameters: []string{"nCount", "lpHandles", "b:bWaitAll", "dwMilliseconds"},
@@ -833,4 +854,93 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"hHandle", "dwMilliseconds"},
 		Fn:         waitForSingleObject,
 	})
+
+	emu.AddHook("", "PathUnExpandEnvStringsW", &Hook{
+		Parameters: []string{"w:pszPath", "pszPath", "cchBuf"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "GetLocalTime", &Hook{
+		Parameters: []string{"lpSystemTime"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			systemTime := struct {
+				Year         uint16
+				Month        uint16
+				DayOfWeek    uint16
+				Day          uint16
+				Hour         uint16
+				Minute       uint16
+				Second       uint16
+				Milliseconds uint16
+			}{
+				uint16(emu.Opts.SystemTime.Year),
+				uint16(emu.Opts.SystemTime.Month),
+				uint16(emu.Opts.SystemTime.DayOfWeek),
+				uint16(emu.Opts.SystemTime.Day),
+				uint16(emu.Opts.SystemTime.Hour),
+				uint16(emu.Opts.SystemTime.Minute),
+				uint16(emu.Opts.SystemTime.Second),
+				uint16(emu.Opts.SystemTime.Millisecond),
+			}
+			buf := new(bytes.Buffer)
+			binary.Write(buf, binary.LittleEndian, &systemTime)
+			emu.Uc.MemWrite(in.Args[0], buf.Bytes())
+			return SkipFunctionStdCall(false, 0)(emu, in)
+		},
+	})
+
+	emu.AddHook("", "GetVersion", &Hook{
+		Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			var ret = 0x0
+			ret = ret | emu.Opts.OsMajorVersion
+			ret = ret << 16
+			ret = ret | emu.Opts.OsMinorVersion
+			return SkipFunctionStdCall(true, uint64(ret))(emu, in)
+		},
+	})
+
+	emu.AddHook("", "GetVersionExA", &Hook{
+		Parameters: []string{"lpVersionInformation"},
+		Fn:         getVersionEx,
+	})
+
+	emu.AddHook("", "GetVersionExW", &Hook{
+		Parameters: []string{"lpVersionInformation"},
+		Fn:         getVersionEx,
+	})
+
+	emu.AddHook("", "WideCharToMultiByte", &Hook{
+		Parameters: []string{"CodePage", "dwFlags", "lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
+		Fn:         SkipFunctionStdCall(true, 0x15),
+		//Fn: func(emu *WinEmulator, in *Instruction) bool {
+		//	wideStr := util.ReadWideChar(emu.Uc, in.Args[2], 0)
+		//	lpMultiByteStr:=in.Args[4]
+		//	bytes,_:=emu.Uc.MemRead(in.Args[2],uint64(2*len(wideStr)))
+		//	emu.Uc.MemWrite(lpMultiByteStr,append(bytes,0,0))
+		//	// check if multibyte function is only getting buffer size
+		//	if in.Args[5] == 0x0 {
+		//		return SkipFunctionStdCall(true, uint64(len(wideStr))*2+2)(emu, in)
+		//	} else {
+		//		return SkipFunctionStdCall(true, 0x1)(emu, in)
+		//	}
+		//},
+	})
+	emu.AddHook("", "MultiByteToWideChar", &Hook{
+		Parameters: []string{"CodePage", "dwFlags", "lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
+		Fn:         SkipFunctionStdCall(true, 0x1),
+		//Fn: func(emu *WinEmulator, in *Instruction) bool {
+		//	mb := util.ReadWideChar(emu.Uc, in.Args[2], 0)
+		//
+		//	// check if multibyte function is only getting buffer size
+		//	if in.Args[5] == 0x0 {
+		//		return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
+		//	} else {
+		//		wc := util.ASCIIToWinWChar(mb)
+		//		emu.Uc.MemWrite(in.Args[4], wc)
+		//		return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
+		//	}
+		//},
+	})
+
 }
