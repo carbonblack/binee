@@ -29,12 +29,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="238baaa0-5a25-4747-bf80-1511cfbf30cc" name="Default Changelist" comment="fixed paths by joining, not concat">
-      <change afterPath="$PROJECT_DIR$/.idea/binee.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/util/unicorn.go" beforeDir="false" afterPath="$PROJECT_DIR$/util/unicorn.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/constants.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/constants.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/handles.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/handles.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/hooks.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/hooks.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/kernel32.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/kernel32.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/libloaderapi.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/libloaderapi.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/shlwapi.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/shlwapi.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/synchapi.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/synchapi.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/ucrtbase.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/ucrtbase.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/vcruntime.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/vcruntime.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/winbase.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/winbase.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/windows/winemulator.go" beforeDir="false" afterPath="$PROJECT_DIR$/windows/winemulator.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -50,6 +57,9 @@
     <option name="indexEntireGoPath" value="false" />
   </component>
   <component name="ProjectId" id="1imjceRVlxPCtzNr8ZrzbCbURrY" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -88,8 +98,8 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Go Build.go build github.com/carbonblack/binee" />
       <item itemvalue="Go Build.debugging_binee" />
+      <item itemvalue="Go Build.go build github.com/carbonblack/binee" />
     </list>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />

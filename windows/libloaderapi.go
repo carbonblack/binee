@@ -365,4 +365,8 @@ func LibloaderapiHooks(emu *WinEmulator) {
 		Fn:         GetModuleHandle,
 	})
 
+	emu.AddHook("", "FreeLibrary", &Hook{
+		Parameters: []string{"hLibModule"},
+	})
+
 }

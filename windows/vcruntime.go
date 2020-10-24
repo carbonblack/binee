@@ -30,4 +30,8 @@ func VcRuntimeHooks(emu *WinEmulator) {
 		Parameters: []string{"locknum"},
 		Fn:         SkipFunctionCdecl(false, 0x0),
 	})
+	emu.AddHook("", "__crtLCMapStringA", &Hook{
+		Parameters: []string{"lcid", "mapflags", "srclen", "src", "dstlen", "dst", "codepage", "xflag"},
+		NoLog:      true,
+	})
 }

@@ -15,4 +15,5 @@ test*.txt
 temp/
 os/
 os.zip
-build/*
+/.idea/*
+/build/*

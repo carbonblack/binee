@@ -11,6 +11,18 @@ import (
 	"strings"
 )
 
+func StructRead(u uc.Unicorn, addr uint64, data interface{}) (interface{}, error) {
+	raw, err := u.MemRead(addr, uint64(binary.Size(data)))
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Read(bytes.NewReader(raw), binary.LittleEndian, data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
 // StructWrite given a struct and a unicorn memory address. Convert the struct to a byte
 // array and write that byte array to the address in the unicorn memory
 func StructWrite(u uc.Unicorn, addr uint64, data interface{}) error {
