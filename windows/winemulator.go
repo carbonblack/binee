@@ -5,6 +5,7 @@ import (
 	"github.com/carbonblack/binee/util"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"time"
@@ -176,7 +177,7 @@ func InitWinEmulatorOptions() *WinEmulatorOptions {
 }
 
 // Load is the entry point for loading a PE file in the emulated environment
-func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+func Load(pePath string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
 	if options == nil {
 		options = InitWinEmulatorOptions()
 	}
@@ -184,16 +185,16 @@ func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator
 	var err error
 
 	//load the PE
-	pe, err := pefile.LoadPeFile(path)
+	pe, err := pefile.LoadPeFile(pePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return LoadMem(pe, path, args, options)
+	return LoadMem(pe, pePath, args, options)
 }
 
 // LoadMem will load a pefile from an already initiated object
-func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+func LoadMem(pe *pefile.PeFile, pePath string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
 	var err error
 
 	emu := &WinEmulator{}
@@ -211,9 +212,9 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	if emu.logType == LogTypeSlice {
 		emu.InstructionLog = make([]*InstructionLog, 0)
 	}
-	emu.Binary = path
+	emu.Binary = pePath
 	emu.Verbosity = options.VerboseLevel
-	emu.Args = append([]string{filepath.Base(path)}, args...)
+	emu.Args = append([]string{filepath.Base(pePath)}, args...)
 	emu.Argc = uint64(len(emu.Args))
 	emu.nameToHook = make(map[string]*Hook)
 	emu.LoadedModules = make(map[string]uint64)
@@ -367,7 +368,9 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
 	emu.LdrIndex = 0
-	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
+
+	inputSys32Dir := path.Join(emu.Opts.Root, "windows", "system32")
+	emu.SearchPath = []string{"temp/", inputSys32Dir, "c:\\Windows\\System32"}
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
@@ -377,7 +380,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Registry = mockRegistry
 	emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
 	emu.Opts.Drivers = getStubDrivers()
-	err = emu.initPe(pe, path, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
+	err = emu.initPe(pe, pePath, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
 
 	emu.CPU = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
 	emu.Scheduler = NewScheduleManager(emu)
