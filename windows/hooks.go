@@ -90,11 +90,6 @@ func (emu *WinEmulator) Start() error {
 	emu.SetupHooks()
 	emu.startTime = time.Now()
 	emu.Uc.Start(emu.EntryPoint, 0x0)
-	if emu.GenerateFacts && emu.FactFactory != nil {
-		for i, _ := range emu.FactFactory.Facts {
-			fmt.Println(i)
-		}
-	}
 	return nil
 }
 
@@ -150,9 +145,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 			}
 		}
-		if emu.GenerateFacts {
-			addFact(instruction, emu)
-		}
+
 		if doContinue == false {
 			mu.Stop()
 		}
@@ -160,7 +153,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		if emu.Ticks%10 == 0 || emu.Scheduler.curThread.Status != 0 {
 			emu.Scheduler.DoSchedule()
 		}
-		//time.Sleep(1 * time.Minute)
+
 		// check that the emulation only emulates n ticks. If 0, continue
 		if emu.maxTicks > 0 && emu.Ticks > emu.maxTicks {
 			fmt.Fprintf(os.Stderr, "maxticks [0x%x] timeout", emu.maxTicks)
