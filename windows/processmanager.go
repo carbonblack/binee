@@ -878,10 +878,10 @@ func (p *ProcessManager) startRemoteThread(parameters map[string]interface{}) ui
 
 		switch parameter {
 		case "dwCreationFlags":
-			remoteThread.dwCreationFlags = value.(uint32)
+			remoteThread.dwCreationFlags = value.(uint64)
 			continue
 		case "lpParameter":
-			remoteThread.lpParameter = value.(uint32)
+			remoteThread.lpParameter = value.(uint64)
 			continue
 		case "creatorProcessID":
 			remoteThread.creatorProcessID = value.(uint32)
@@ -890,12 +890,12 @@ func (p *ProcessManager) startRemoteThread(parameters map[string]interface{}) ui
 			remoteThread.ownerProcessID = value.(uint32)
 			continue
 		case "lpStartAddress":
-			remoteThread.lpStartAddress = value.(uint32)
+			remoteThread.lpStartAddress = value.(uint64)
 			continue
 		case "stackSize":
-			remoteThread.dwStackSize = value.(uint32)
+			remoteThread.dwStackSize = value.(uint64)
 		case "stackAddress":
-			remoteThread.stackAddress = value.(uint32)
+			remoteThread.stackAddress = value.(uint64)
 
 		default:
 			fmt.Errorf("specified parameter [%s] not supported", parameter)
