@@ -2,6 +2,7 @@ package windows
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/carbonblack/binee/util"
 	"io/ioutil"
 	"os"
@@ -376,8 +377,27 @@ func LoadMem(pe *pefile.PeFile, pePath string, args []string, options *WinEmulat
 	emu.LdrIndex = 0
 
 	//TODO: confirm that this is the best searching-order.
+	//TODO: replace the hardcoded `C` drive with `SystemDrive` environment variable
 	inputSys32Dir := path.Join(emu.Opts.Root, "windows", "system32")
-	emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
+	//TODO: confirm that this works fine on 32-bit builds
+	const hostIs64Bit = uint64(^uintptr(0)) == ^uint64(0)
+	if pe.PeType == pefile.Pe32 {
+		if hostIs64Bit{
+			inputSysWoW64 := path.Join(emu.Opts.Root, "Windows", "SysWOW64")
+			// %sys32% here is a MUST in order to find `apisetschema.dll` :/
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSysWoW64, "c:\\Windows\\SysWOW64", "c:\\Windows\\System32"}
+		} else {
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
+		}
+	} else { //TODO: add `pefile.Pe64` type
+		if hostIs64Bit{
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
+		} else {
+			//TODO: confirm that this is the way we should fail
+			err = errors.New("arch: 64-bit DLLs not available on 32-bit windows")
+			return emu, err
+		}
+	}
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
