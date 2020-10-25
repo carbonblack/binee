@@ -375,8 +375,9 @@ func LoadMem(pe *pefile.PeFile, pePath string, args []string, options *WinEmulat
 	}
 	emu.LdrIndex = 0
 
+	//TODO: confirm that this is the best searching-order.
 	inputSys32Dir := path.Join(emu.Opts.Root, "windows", "system32")
-	emu.SearchPath = []string{"temp/", inputSys32Dir, "c:\\Windows\\System32"}
+	emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {

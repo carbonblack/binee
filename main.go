@@ -50,8 +50,9 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
+		//TODO: confirm that this is the best searching-order.
 		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
-		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", inputSys32Dir}, "apisetschema.dll")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -74,8 +75,9 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
+		//TODO: confirm that this is the best searching-order.
 		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
-		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", inputSys32Dir}, "apisetschema.dll")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
