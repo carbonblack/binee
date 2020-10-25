@@ -186,12 +186,12 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 			}
 			remoteThread := emu.ProcessManager.remoteThreadMap[uint32(len(emu.ProcessManager.remoteThreadMap))-1]
 			remoteThreadHandle := &Handle{
-				RemoteThreads: &remoteThread,
+				Object: &remoteThread,
 			}
 			handleAddr := emu.Heap.Malloc(4)
 			emu.Handles[handleAddr] = remoteThreadHandle
 			// write thread ID back to pointer lpThreadId
-			util.PutPointer(emu.Uc, emu.PtrSize, in.Args[6], uint64(remoteThreadHandle.RemoteThreads.remoteThreadID))
+			util.PutPointer(emu.Uc, emu.PtrSize, in.Args[6], uint64(remoteThread.remoteThreadID))
 
 			return SkipFunctionStdCall(true, handleAddr)(emu, in)
 		},
