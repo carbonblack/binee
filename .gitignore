@@ -15,5 +15,5 @@ test*.txt
 temp/
 os/
 os.zip
-/.idea/*
-/build/*
+.idea/*
+build/*
