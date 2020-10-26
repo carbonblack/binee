@@ -10,6 +10,7 @@ import (
 	"github.com/carbonblack/binee/util"
 	"github.com/carbonblack/binee/windows"
 	"log"
+	"path"
 )
 
 func main() {
@@ -48,12 +49,14 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder + "windows/system32"}, "apisetschema.dll")
+		//TODO: confirm that this is the best searching-order.
+		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		apiset, _ := pefile.LoadPeFile(path)
+		apiset, _ := pefile.LoadPeFile(pePath)
 
 		for k, v := range apiset.Apisets {
 			fmt.Println(k, v)
@@ -71,12 +74,14 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder + "windows/system32"}, "apisetschema.dll")
+		//TODO: confirm that this is the best searching-order.
+		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		apiset, _ := pefile.LoadPeFile(path)
+		apiset, _ := pefile.LoadPeFile(pePath)
 		lookup := (*isAPISetLookup)[0 : len(*isAPISetLookup)-6]
 		if apiset.Apisets[lookup] != nil {
 			for i := 0; i < len(apiset.Apisets[lookup]); i++ {
