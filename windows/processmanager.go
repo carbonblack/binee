@@ -6,6 +6,20 @@ import (
 	"unsafe"
 )
 
+type RemoteThread struct {
+	remoteThreadID   uint32
+	ownerProcessID   uint32
+	creatorProcessID uint32
+	dwCreationFlags  uint64
+	lpStartAddress   uint64
+	lpParameter      uint64
+	dwStackSize      uint64
+	currentState     byte
+	stackAddress     uint64
+	//lpThreadAttributes	uint32 //
+	//thread 				Thread   // todo for future development
+}
+
 type ProcessManager struct {
 	numberOfProcesses uint64
 	processList       []Process
@@ -26,25 +40,8 @@ type Process struct {
 	pcPriClassBase      int32
 	dwFlags             uint32
 	szExeFile           [260]byte
-
 	//Other features might be added
 	remoteThreadIds []uint32
-}
-type RemoteThread struct {
-	remoteThreadID   uint32
-	ownerProcessID   uint32
-	creatorProcessID uint32
-	dwCreationFlags  uint32
-	lpStartAddress   uint32
-	lpParameter      uint32
-	dwStackSize      uint32
-	currentState     byte
-	stackAddress     uint32
-	stackSize        uint32
-	//lpThreadAttributes	uint32 //
-
-	//thread 				Thread   // todo for future development
-
 }
 
 func InitializeProcessManager(addStub bool) *ProcessManager {
