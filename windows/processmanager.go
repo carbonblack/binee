@@ -51,6 +51,7 @@ func InitializeProcessManager(addStub bool) *ProcessManager {
 	newProcessManager := &ProcessManager{numberOfProcesses: 0}
 	newProcessManager.processMap = make(map[uint32]Process)
 	newProcessManager.currentPid = 0
+	newProcessManager.remoteThreadMap = make(map[uint32]RemoteThread)
 	if addStub {
 		newProcessManager.addStubProcesses()
 	}
