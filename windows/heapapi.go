@@ -22,6 +22,14 @@ func HeapapiHooks(emu *WinEmulator) {
 	emu.AddHook("", "HeapFree", &Hook{
 		Parameters: []string{"hHeap", "dwFlags", "lpMem"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			size := emu.Heap.Size(in.Args[2])
+			if size == 0 {
+				return SkipFunctionStdCall(true, ERROR_INVALID_ADDRESS)(emu, in)
+			}
+			nullBytes := make([]byte, size)
+			if err := emu.Uc.MemWrite(in.Args[2], nullBytes); err != nil {
+				return SkipFunctionStdCall(true, ERROR_INVALID_ADDRESS)(emu, in)
+			}
 			success := emu.Heap.Free(in.Args[2])
 			return SkipFunctionStdCall(true, success)(emu, in)
 		},
