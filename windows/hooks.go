@@ -310,10 +310,18 @@ func (self *Instruction) ParseValues() {
 			self.Hook.Values[i] = ""
 		case "w:":
 			s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			}
 		case "a:":
 			s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			}
 		case "v:":
 			continue
 		case "s:":
@@ -355,10 +363,19 @@ func (i *Instruction) StringHook() string {
 			continue
 		case "w:":
 			s := util.ReadWideChar(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			}
 		case "a:":
 			s := util.ReadASCII(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+
+			}
 		case "v:":
 			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
 		case "s:":
