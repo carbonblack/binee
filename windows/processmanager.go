@@ -33,6 +33,12 @@ func InitializeProcessManager(addStub bool) *ProcessManager {
 	if addStub {
 		newProcessManager.addStubProcesses()
 	}
+	newProcess := Process{dwSize: uint32(unsafe.Sizeof(ProcessEntry{})), cntUsage: 0, th32DefaultHeapID: 0, th32ModuleID: 0, dwFlags: 0}
+	newProcess.the32ProcessID = 0x1001
+	//Create current process
+	newProcessManager.processMap[newProcess.the32ProcessID] = newProcess
+	newProcessManager.numberOfProcesses++
+	newProcessManager.processList = append(newProcessManager.processList, newProcess)
 	return newProcessManager
 }
 

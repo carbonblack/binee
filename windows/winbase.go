@@ -365,7 +365,7 @@ func WinbaseHooks(emu *WinEmulator) {
 		Fn:         FindResource,
 	})
 	emu.AddHook("", "FindResourceW", &Hook{
-		Parameters: []string{"hModule", "a:lpName", "w:lpType"},
+		Parameters: []string{"hModule", "w:lpName", "w:lpType"},
 		Fn:         FindResource,
 	})
 
@@ -473,5 +473,18 @@ func WinbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "_mbtowc_l", &Hook{
 		Parameters: []string{"wchar", "mbchar", "count"},
 		NoLog:      true,
+	})
+
+	emu.AddHook("", "LookupAccountNameW", &Hook{
+		Parameters: []string{"w:lpSystemName", "w:lpAccountName", "Sid", "cbSid", "ReferencedDomainName", "cchReferencedDomainName", "peUse"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+	emu.AddHook("", "LookupAccountNameA", &Hook{
+		Parameters: []string{"a:lpSystemName", "a:lpAccountName", "Sid", "cbSid", "ReferencedDomainName", "cchReferencedDomainName", "peUse"},
+	})
+
+	emu.AddHook("", "GetUserNameExW", &Hook{
+		Parameters: []string{"NameFormat", "lpNameBuffer", "nSize"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 }

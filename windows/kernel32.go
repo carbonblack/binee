@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/carbonblack/binee/core"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -491,6 +492,10 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x123456),
 		NoLog:      true,
 	})
+	emu.AddHook("", "GetProcessHeaps", &Hook{
+		Parameters: []string{"NumberOfHeaps", "ProcessHeaps"},
+		NoLog:      true,
+	})
 	emu.AddHook("", "GetProcessIoCounters", &Hook{
 		Parameters: []string{"hProcess", "lpIoCounters"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -911,20 +916,21 @@ func KernelbaseHooks(emu *WinEmulator) {
 	})
 
 	emu.AddHook("", "WideCharToMultiByte", &Hook{
-		Parameters: []string{"CodePage", "dwFlags", "lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
-		Fn:         SkipFunctionStdCall(true, 0x15),
-		//Fn: func(emu *WinEmulator, in *Instruction) bool {
-		//	wideStr := util.ReadWideChar(emu.Uc, in.Args[2], 0)
-		//	lpMultiByteStr:=in.Args[4]
-		//	bytes,_:=emu.Uc.MemRead(in.Args[2],uint64(2*len(wideStr)))
-		//	emu.Uc.MemWrite(lpMultiByteStr,append(bytes,0,0))
-		//	// check if multibyte function is only getting buffer size
-		//	if in.Args[5] == 0x0 {
-		//		return SkipFunctionStdCall(true, uint64(len(wideStr))*2+2)(emu, in)
-		//	} else {
-		//		return SkipFunctionStdCall(true, 0x1)(emu, in)
-		//	}
-		//},
+		Parameters: []string{"CodePage", "dwFlags", "w:lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
+		//Fn:         SkipFunctionStdCall(true, 0x15),
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			wideStr := util.ReadWideChar(emu.Uc, in.Args[2], 0)
+			lpMultiByteStr := in.Args[4]
+			// check if multibyte function is only getting buffer size
+			if in.Args[5] == 0x0 {
+				return SkipFunctionStdCall(true, uint64(len(wideStr))*2+2)(emu, in)
+			} else {
+				bytes, _ := emu.Uc.MemRead(in.Args[2], uint64(2*len(wideStr)))
+				maxLength := int(math.Min(float64(len(bytes)), float64(in.Args[5]*2)))
+				emu.Uc.MemWrite(lpMultiByteStr, append(bytes[:maxLength], 0, 0))
+				return SkipFunctionStdCall(true, uint64(maxLength))(emu, in)
+			}
+		},
 	})
 	emu.AddHook("", "MultiByteToWideChar", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
@@ -941,6 +947,11 @@ func KernelbaseHooks(emu *WinEmulator) {
 		//		return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
 		//	}
 		//},
+	})
+
+	emu.AddHook("", "LdrResolveDelayLoadedAPI", &Hook{
+		Parameters: []string{"base", "desc", "dllhook", "syshook", "addr", "flags"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 
 }
