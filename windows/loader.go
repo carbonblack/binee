@@ -858,7 +858,7 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 
 		// TIB, only 32 bit for now
 		tib := ThreadInformationBlock32{}
-		tib.ProcessId = 0x1001
+		tib.ProcessId = CURRENT_PROC_ID
 		tib.CurrentThreadId = 0x2001
 		tib.StackBaseHigh = uint32(emu.MemRegions.StackAddress)
 		tib.StackLimit = uint32(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
@@ -926,7 +926,7 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 
 		// TIB
 		tib := ThreadInformationBlock64{}
-		tib.ProcessId = 0x1001
+		tib.ProcessId = CURRENT_PROC_ID
 		tib.CurrentThreadId = 0x2001
 		tib.StackBaseHigh = uint64(emu.MemRegions.StackAddress)
 		tib.StackLimit = uint64(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
