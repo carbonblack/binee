@@ -199,11 +199,67 @@ func ProcessthreadsapiHooks(emu *WinEmulator) {
 
 	emu.AddHook("", "ResumeThread", &Hook{
 		Parameters: []string{"hThread"},
-		Fn:         SkipFunctionStdCall(true, 1),
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			threadHandle := in.Args[0]
+			handle := emu.Handles[threadHandle]
+			if handle.Thread != nil {
+				threadId := handle.Thread.ThreadId
+				status := emu.Scheduler.ResumeThread(threadId)
+				if status {
+					emu.setLastError(0)
+					return SkipFunctionStdCall(true, 0x1337)(emu, in)
+				} else {
+					emu.setLastError(0xFFFFFFFF)
+					return SkipFunctionStdCall(true, 0)(emu, in)
+				}
+			}
+			rthreadHandle := handle.Object.(*RemoteThread)
+			if rthreadHandle != nil {
+				threadId := rthreadHandle.remoteThreadID
+				status := emu.ProcessManager.resumeRemoteThread(threadId)
+				if status {
+					emu.setLastError(0)
+					return SkipFunctionStdCall(true, 1337)(emu, in)
+				} else {
+					emu.setLastError(0xFFFFFFFF)
+					return SkipFunctionStdCall(true, 0)(emu, in)
+				}
+			}
+			emu.setLastError(0xFFFFFFFF)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		},
 	})
 	emu.AddHook("", "SuspendThread", &Hook{
 		Parameters: []string{"hThread"},
-		Fn:         SkipFunctionStdCall(true, 1),
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			threadHandle := in.Args[0]
+			handle := emu.Handles[threadHandle]
+			if handle.Thread != nil {
+				threadId := handle.Thread.ThreadId
+				status := emu.Scheduler.SuspendThread(threadId)
+				if status {
+					emu.setLastError(0)
+					return SkipFunctionStdCall(true, 0x1337)(emu, in)
+				} else {
+					emu.setLastError(0xFFFFFFFF)
+					return SkipFunctionStdCall(true, 0)(emu, in)
+				}
+			}
+			rthreadHandle := handle.Object.(*RemoteThread)
+			if rthreadHandle != nil {
+				threadId := rthreadHandle.remoteThreadID
+				status := emu.ProcessManager.suspendRemoteThread(threadId)
+				if status {
+					emu.setLastError(0)
+					return SkipFunctionStdCall(true, 0x1337)(emu, in)
+				} else {
+					emu.setLastError(0xFFFFFFFF)
+					return SkipFunctionStdCall(true, 0)(emu, in)
+				}
+			}
+			emu.setLastError(0xFFFFFFFF)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		},
 	})
 	emu.AddHook("", "SetThreadContext", &Hook{
 		Parameters: []string{"hThread", "lpContext"},

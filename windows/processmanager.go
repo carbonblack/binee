@@ -920,3 +920,30 @@ func (p *ProcessManager) startRemoteThread(parameters map[string]interface{}) ui
 	return remoteThread.remoteThreadID
 
 }
+
+func (p *ProcessManager) suspendRemoteThread(threadId uint32) bool {
+	thread := p.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.currentState &= CREATE_SUSPENDED
+	return true
+}
+
+func (p *ProcessManager) resumeRemoteThread(threadId uint32) bool {
+	thread := p.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.currentState &= 0
+	return true
+}
+
+func (p *ProcessManager) findThreadyByID(threadId uint32) *RemoteThread {
+	for _, t := range p.remoteThreadMap {
+		if t.remoteThreadID == threadId {
+			return &t
+		}
+	}
+	return nil
+}

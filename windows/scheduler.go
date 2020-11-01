@@ -207,3 +207,22 @@ func (self *ScheduleManager) DelThread(threadId int) {
 
 	self.threads = newThreads
 }
+
+//ToDo add SuspendCount
+func (self *ScheduleManager) SuspendThread(threadId int) bool {
+	thread := self.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.Status &= CREATE_SUSPENDED
+	return true
+}
+
+func (self *ScheduleManager) ResumeThread(threadId int) bool {
+	thread := self.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.Status &= 0
+	return true
+}
