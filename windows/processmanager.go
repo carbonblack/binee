@@ -953,3 +953,23 @@ func (p *ProcessManager) findThreadyByID(threadId uint32) *RemoteThread {
 	}
 	return nil
 }
+
+func (p *ProcessManager) terminateRemoteThread(remoteThreadID uint32) bool {
+	status := false
+	index := p.findRemoteThreadIndex(remoteThreadID)
+	if index == -1 {
+		return status
+	}
+	delete(p.remoteThreadMap, remoteThreadID)
+	status = true
+	return status
+}
+
+func (p *ProcessManager) findRemoteThreadIndex(remoteThreadID uint32) int {
+	for i, rthread := range p.remoteThreadMap {
+		if rthread.remoteThreadID == remoteThreadID {
+			return int(i)
+		}
+	}
+	return -1
+}
