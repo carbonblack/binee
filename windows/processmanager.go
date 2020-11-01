@@ -926,7 +926,7 @@ func (p *ProcessManager) suspendRemoteThread(threadId uint32) bool {
 	if thread == nil {
 		return false
 	}
-	thread.currentState &= CREATE_SUSPENDED
+	thread.currentState |= CREATE_SUSPENDED
 	return true
 }
 

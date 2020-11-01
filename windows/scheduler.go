@@ -214,7 +214,7 @@ func (self *ScheduleManager) SuspendThread(threadId int) bool {
 	if thread == nil {
 		return false
 	}
-	thread.Status &= CREATE_SUSPENDED
+	thread.Status |= CREATE_SUSPENDED
 	return true
 }
 
