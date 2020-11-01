@@ -10,6 +10,7 @@ import (
 	"github.com/carbonblack/binee/util"
 	"github.com/carbonblack/binee/windows"
 	"log"
+	"path"
 )
 
 func main() {
@@ -28,7 +29,6 @@ func main() {
 	runDLLMain := flag.Bool("m", false, "call DLLMain while loading DLLs")
 	rootFolder := flag.String("r", "os/win10_32/", "root path of mock file system, defaults to ./os/win10_32")
 	maxTicks := flag.Int64("t", 0, "maximum number of instructions to emulate before stopping emulation, default is 0 and will run forever or until other stopping event")
-	generateFacts := flag.Bool("facts", false, "generate facts")
 	maxTimeMinutes := flag.Int("timem", 0, "maximum time to emulate before stopping emulation in minutes.")
 	flag.Parse()
 
@@ -49,12 +49,14 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder + "windows/system32"}, "apisetschema.dll")
+		//TODO: confirm that this is the best searching-order.
+		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		apiset, _ := pefile.LoadPeFile(path)
+		apiset, _ := pefile.LoadPeFile(pePath)
 
 		for k, v := range apiset.Apisets {
 			fmt.Println(k, v)
@@ -72,12 +74,14 @@ func main() {
 			}
 			rootFolder = &conf.Root
 		}
-		path, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder + "windows/system32"}, "apisetschema.dll")
+		//TODO: confirm that this is the best searching-order.
+		inputSys32Dir := path.Join(*rootFolder, "windows", "system32")
+		pePath, err := util.SearchFile([]string{"C:\\Windows\\System32", *rootFolder, inputSys32Dir}, "apisetschema.dll")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		apiset, _ := pefile.LoadPeFile(path)
+		apiset, _ := pefile.LoadPeFile(pePath)
 		lookup := (*isAPISetLookup)[0 : len(*isAPISetLookup)-6]
 		if apiset.Apisets[lookup] != nil {
 			for i := 0; i < len(apiset.Apisets[lookup]); i++ {
@@ -154,7 +158,6 @@ func main() {
 	options.RootFolder = *rootFolder
 	options.ShowDLL = *showDLL
 	options.RunDLLMain = *runDLLMain
-	options.GenerateFacts = *generateFacts
 	options.MaxTime = *maxTimeMinutes
 	if *outputJSON {
 		options.LogType = windows.LogTypeJSON

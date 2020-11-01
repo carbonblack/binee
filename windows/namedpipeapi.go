@@ -14,4 +14,8 @@ func Namedpipeapi(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x1337),
 	})
 
+	emu.AddHook("", "SetNamedPipeHandleState", &Hook{
+		Parameters: []string{"hNamedPipe", "lpMode", "lpMaxCollectionCount", "lpCollectDataTimeout"},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 }

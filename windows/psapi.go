@@ -1,6 +1,9 @@
 package windows
 
-import "github.com/carbonblack/binee/util"
+import (
+	"github.com/carbonblack/binee/util"
+	"path/filepath"
+)
 
 func enumDeviceDrivers(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
 
@@ -69,4 +72,30 @@ func PsapiHooks(emu *WinEmulator) {
 		Parameters: []string{"ImageBase", "lpBaseName", "nSize"},
 		Fn:         getDeviceDriverBaseName,
 	})
+	emu.AddHook("", "GetModuleFileNameExW", &Hook{
+		Parameters: []string{"hProcess", "hModule", "w:lpFilename", "nSize"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+			f := ""
+			buffer := in.Args[2]
+			handle, ok := emu.Handles[in.Args[0]]
+			if !ok || handle.Process == nil {
+				emu.setLastError(ERROR_INVALID_HANDLE)
+				return SkipFunctionStdCall(true, 0)(emu, in)
+			}
+			if handle.Process.the32ProcessID == CURRENT_PROC_ID {
+				if in.Args[1] == 0x0 {
+					if wide {
+						f = "C:\\Users\\" + emu.Opts.User + "\\" + filepath.Base(emu.Binary)
+						emu.Uc.MemWrite(buffer, util.ASCIIToWinWChar(f))
+					} else {
+						f = "C:\\Users\\" + emu.Opts.User + "\\" + filepath.Base(emu.Binary)
+						emu.Uc.MemWrite(buffer, []byte(f))
+					}
+				}
+			}
+			return SkipFunctionStdCall(true, uint64(len(f)+1))(emu, in)
+		},
+	})
+
 }

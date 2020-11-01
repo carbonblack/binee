@@ -1,6 +1,8 @@
 package windows
 
 const (
+	CURRENT_PROC_ID = 0x1001
+	//
 	GENERIC_ALL      = 0x10000000
 	GENERIC_EXECUTE  = 0x20000000
 	GENERIC_WRITE    = 0x40000000

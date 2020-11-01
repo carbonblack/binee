@@ -2,9 +2,11 @@ package windows
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/carbonblack/binee/util"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"time"
@@ -107,8 +109,6 @@ type WinEmulator struct {
 	LastCommand     string
 	Breakpoints     map[uint64]uint64
 	AutoContinue    bool
-	FactFactory     *FactFactory
-	GenerateFacts   bool
 	GlobalVariables GlobalVariables
 	NumMainCallDll  uint //number of dlls whose main are called.
 	startTime       time.Time
@@ -154,50 +154,47 @@ const (
 
 // WinEmulatorOptions will get passed into the WinEmulator
 type WinEmulatorOptions struct {
-	RootFolder    string
-	RunDLLMain    bool
-	ConfigPath    string
-	VerboseLevel  int
-	ShowDLL       bool
-	MaxTicks      int64
-	LogType       int
-	GenerateFacts bool
-	MaxTime       int
+	RootFolder   string
+	RunDLLMain   bool
+	ConfigPath   string
+	VerboseLevel int
+	ShowDLL      bool
+	MaxTicks     int64
+	LogType      int
+	MaxTime      int
 }
 
 // InitWinEmulatorOptions will build a default option struct to pass into WinEmulator
 func InitWinEmulatorOptions() *WinEmulatorOptions {
 	return &WinEmulatorOptions{
-		RootFolder:    "os/win10_32/",
-		RunDLLMain:    false,
-		ConfigPath:    "",
-		VerboseLevel:  0,
-		ShowDLL:       false,
-		MaxTicks:      0,
-		LogType:       LogTypeStdout,
-		GenerateFacts: false,
+		RootFolder:   "os/win10_32/",
+		RunDLLMain:   false,
+		ConfigPath:   "",
+		VerboseLevel: 0,
+		ShowDLL:      false,
+		MaxTicks:     0,
+		LogType:      LogTypeStdout,
 	}
 }
 
 // Load is the entry point for loading a PE file in the emulated environment
-func Load(path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+func Load(pePath string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
 	if options == nil {
 		options = InitWinEmulatorOptions()
 	}
 
 	var err error
-
 	//load the PE
-	pe, err := pefile.LoadPeFile(path)
+	pe, err := pefile.LoadPeFile(pePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return LoadMem(pe, path, args, options)
+	return LoadMem(pe, pePath, args, options)
 }
 
 // LoadMem will load a pefile from an already initiated object
-func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
+func LoadMem(pe *pefile.PeFile, pePath string, args []string, options *WinEmulatorOptions) (*WinEmulator, error) {
 	var err error
 
 	emu := &WinEmulator{}
@@ -216,9 +213,9 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	if emu.logType == LogTypeSlice {
 		emu.InstructionLog = make([]*InstructionLog, 0)
 	}
-	emu.Binary = path
+	emu.Binary = pePath
 	emu.Verbosity = options.VerboseLevel
-	emu.Args = append([]string{filepath.Base(path)}, args...)
+	emu.Args = append([]string{filepath.Base(pePath)}, args...)
 	emu.Argc = uint64(len(emu.Args))
 	emu.nameToHook = make(map[string]*Hook)
 	emu.LoadedModules = make(map[string]uint64)
@@ -241,10 +238,6 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Seed = 1
 	emu.ResourcesRoot = pe.ResourceDirectoryRoot
 	emu.ProcessManager = InitializeProcessManager(true)
-	emu.GenerateFacts = options.GenerateFacts
-	if emu.GenerateFacts {
-		emu.FactFactory = InitializeFactsFactory()
-	}
 	if pe.PeType == pefile.Pe32 {
 		emu.PtrSize = 4
 		emu.MemRegions.GdtAddress = 0xc0000000
@@ -373,7 +366,29 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 		_ = yaml.Unmarshal(buf, &emu.Opts)
 	}
 	emu.LdrIndex = 0
-	emu.SearchPath = []string{"temp/", emu.Opts.Root + "windows/system32/", "c:\\Windows\\System32"}
+
+	//TODO: confirm that this is the best searching-order.
+	//TODO: replace the hardcoded `C` drive with `SystemDrive` environment variable
+	inputSys32Dir := path.Join(emu.Opts.Root, "windows", "system32")
+	//TODO: confirm that this works fine on 32-bit builds
+	const hostIs64Bit = uint64(^uintptr(0)) == ^uint64(0)
+	if pe.PeType == pefile.Pe32 {
+		if hostIs64Bit{
+			inputSysWoW64 := path.Join(emu.Opts.Root, "Windows", "SysWOW64")
+			// %sys32% here is a MUST in order to find `apisetschema.dll` :/
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSysWoW64, "c:\\Windows\\SysWOW64", "c:\\Windows\\System32"}
+		} else {
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
+		}
+	} else { //TODO: add `pefile.Pe64` type
+		if hostIs64Bit{
+			emu.SearchPath = []string{"temp/", emu.Opts.Root, inputSys32Dir, "c:\\Windows\\System32"}
+		} else {
+			//TODO: confirm that this is the way we should fail
+			err = errors.New("arch: 64-bit DLLs not available on 32-bit windows")
+			return emu, err
+		}
+	}
 
 	var mockRegistry *Registry
 	if mockRegistry, err = NewRegistry(emu.Opts.TempRegistry); err != nil {
@@ -383,7 +398,7 @@ func LoadMem(pe *pefile.PeFile, path string, args []string, options *WinEmulator
 	emu.Registry = mockRegistry
 	emu.Opts.TempRegistry = nil //get GC to clean up temp registry from the config file
 	emu.Opts.Drivers = getStubDrivers()
-	err = emu.initPe(pe, path, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
+	err = emu.initPe(pe, pePath, emu.UcArch, emu.UcMode, args, options.RunDLLMain)
 
 	emu.CPU = core.NewCpuManager(emu.Uc, emu.UcMode, emu.MemRegions.StackAddress, emu.MemRegions.StackSize, emu.MemRegions.HeapAddress, emu.MemRegions.HeapSize)
 	emu.Scheduler = NewScheduleManager(emu)

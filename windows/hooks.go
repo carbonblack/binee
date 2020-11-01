@@ -90,11 +90,6 @@ func (emu *WinEmulator) Start() error {
 	emu.SetupHooks()
 	emu.startTime = time.Now()
 	emu.Uc.Start(emu.EntryPoint, 0x0)
-	if emu.GenerateFacts && emu.FactFactory != nil {
-		for i, _ := range emu.FactFactory.Facts {
-			fmt.Println(i)
-		}
-	}
 	return nil
 }
 
@@ -150,9 +145,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 
 			}
 		}
-		if emu.GenerateFacts {
-			addFact(instruction, emu)
-		}
+
 		if doContinue == false {
 			mu.Stop()
 		}
@@ -160,7 +153,7 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		if emu.Ticks%10 == 0 || emu.Scheduler.curThread.Status != 0 {
 			emu.Scheduler.DoSchedule()
 		}
-		//time.Sleep(1 * time.Minute)
+
 		// check that the emulation only emulates n ticks. If 0, continue
 		if emu.maxTicks > 0 && emu.Ticks > emu.maxTicks {
 			fmt.Fprintf(os.Stderr, "maxticks [0x%x] timeout", emu.maxTicks)
@@ -317,10 +310,18 @@ func (self *Instruction) ParseValues() {
 			self.Hook.Values[i] = ""
 		case "w:":
 			s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			}
 		case "a:":
 			s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			}
 		case "v:":
 			continue
 		case "s:":
@@ -362,10 +363,19 @@ func (i *Instruction) StringHook() string {
 			continue
 		case "w:":
 			s := util.ReadWideChar(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			}
 		case "a:":
 			s := util.ReadASCII(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+
+			}
 		case "v:":
 			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
 		case "s:":
