@@ -6,11 +6,28 @@ import (
 	"unsafe"
 )
 
+type RemoteThread struct {
+	remoteThreadID   uint32
+	ownerProcessID   uint32
+	creatorProcessID uint32
+	dwCreationFlags  uint64
+	lpStartAddress   uint64
+	lpParameter      uint64
+	dwStackSize      uint64
+	currentState     byte
+	stackAddress     uint64
+	//lpThreadAttributes	uint32 //
+	//thread 				Thread   // todo for future development
+}
+
 type ProcessManager struct {
 	numberOfProcesses uint64
 	processList       []Process
 	processMap        map[uint32]Process
 	currentPid        uint32
+	remoteThreadMap   map[uint32]RemoteThread
+	atomicRThreadNum  uint32 //base number for remote thread ids 0xca7
+
 }
 type Process struct {
 	dwSize              uint32
@@ -24,12 +41,14 @@ type Process struct {
 	dwFlags             uint32
 	szExeFile           [260]byte
 	//Other features might be added
+	remoteThreadIds []uint32
 }
 
 func InitializeProcessManager(addStub bool) *ProcessManager {
 	newProcessManager := &ProcessManager{numberOfProcesses: 0}
 	newProcessManager.processMap = make(map[uint32]Process)
 	newProcessManager.currentPid = 0
+	newProcessManager.remoteThreadMap = make(map[uint32]RemoteThread)
 	if addStub {
 		newProcessManager.addStubProcesses()
 	}
@@ -854,4 +873,103 @@ func (p *ProcessManager) startProcess(parameters map[string]interface{}) bool {
 	p.numberOfProcesses++
 	p.processList = append(p.processList, newProcess)
 	return true
+}
+
+func (p *ProcessManager) startRemoteThread(parameters map[string]interface{}) uint32 {
+
+	remoteThread := RemoteThread{}
+	for parameter, value := range parameters {
+
+		switch parameter {
+		case "dwCreationFlags":
+			remoteThread.dwCreationFlags = value.(uint64)
+			continue
+		case "lpParameter":
+			remoteThread.lpParameter = value.(uint64)
+			continue
+		case "creatorProcessID":
+			remoteThread.creatorProcessID = value.(uint32)
+			continue
+		case "ownerProcessID":
+			remoteThread.ownerProcessID = value.(uint32)
+			continue
+		case "lpStartAddress":
+			remoteThread.lpStartAddress = value.(uint64)
+			continue
+		case "stackSize":
+			remoteThread.dwStackSize = value.(uint64)
+		case "stackAddress":
+			remoteThread.stackAddress = value.(uint64)
+
+		default:
+			fmt.Errorf("specified parameter [%s] not supported", parameter)
+		}
+
+	}
+
+	if p.atomicRThreadNum > 0xca7+1000000 { //max range of remote threads IDs
+		p.atomicRThreadNum = 0xca7
+	}
+	remoteThread.remoteThreadID = p.atomicRThreadNum
+	remoteThread.currentState = byte(remoteThread.dwCreationFlags) & 0x04
+
+	if ownerProcess, exists := p.processMap[remoteThread.ownerProcessID]; exists {
+		p.remoteThreadMap[p.atomicRThreadNum] = remoteThread
+		ownerProcess.remoteThreadIds = append(ownerProcess.remoteThreadIds, remoteThread.remoteThreadID)
+
+	} else {
+		//Todo Create Dummy Process
+		remoteThread.remoteThreadID = 0xca6 //id for dummy thread
+	}
+	p.atomicRThreadNum += 1
+
+	return remoteThread.remoteThreadID
+
+}
+
+func (p *ProcessManager) suspendRemoteThread(threadId uint32) bool {
+	thread := p.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.currentState |= CREATE_SUSPENDED
+	return true
+}
+
+func (p *ProcessManager) resumeRemoteThread(threadId uint32) bool {
+	thread := p.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.currentState &= 0
+	return true
+}
+
+func (p *ProcessManager) findThreadyByID(threadId uint32) *RemoteThread {
+	for _, t := range p.remoteThreadMap {
+		if t.remoteThreadID == threadId {
+			return &t
+		}
+	}
+	return nil
+}
+
+func (p *ProcessManager) terminateRemoteThread(remoteThreadID uint32) bool {
+	status := false
+	index := p.findRemoteThreadIndex(remoteThreadID)
+	if index == -1 {
+		return status
+	}
+	delete(p.remoteThreadMap, remoteThreadID)
+	status = true
+	return status
+}
+
+func (p *ProcessManager) findRemoteThreadIndex(remoteThreadID uint32) int {
+	for i, rthread := range p.remoteThreadMap {
+		if rthread.remoteThreadID == remoteThreadID {
+			return int(i)
+		}
+	}
+	return -1
 }

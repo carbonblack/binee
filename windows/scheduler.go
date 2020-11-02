@@ -144,6 +144,10 @@ func (self *ScheduleManager) NewThread(eip uint64, stack uint64, parameter uint6
 	}
 
 	// init new thread
+	// Range 0xca5 to 3 * 0xca7 reserved for RemoteThreads
+	if self.threadsAtomic == 0xca5 {
+		self.threadsAtomic += 2 * 0xca7
+	}
 	self.threadsAtomic += 1
 	newThread := Thread{self.threadsAtomic, self.emu.CPU.PopContext(), int(status), nil}
 
@@ -202,4 +206,23 @@ func (self *ScheduleManager) DelThread(threadId int) {
 	}
 
 	self.threads = newThreads
+}
+
+//ToDo add SuspendCount
+func (self *ScheduleManager) SuspendThread(threadId int) bool {
+	thread := self.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.Status |= CREATE_SUSPENDED
+	return true
+}
+
+func (self *ScheduleManager) ResumeThread(threadId int) bool {
+	thread := self.findThreadyByID(threadId)
+	if thread == nil {
+		return false
+	}
+	thread.Status &= 0
+	return true
 }
