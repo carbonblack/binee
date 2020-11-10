@@ -413,12 +413,13 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 	}
 
 	var headersSize uint32
-	if pe.PeType == Pe32 {
-		headersSize = pe.OptionalHeader.(*OptionalHeader32).SizeOfHeaders
-	} else {
-		headersSize = pe.OptionalHeader.(*OptionalHeader32P).SizeOfHeaders
-
+	headersSize = math.MaxUint32
+	for _, section := range pe.Sections {
+		if section.Offset < headersSize {
+			headersSize = section.Offset
+		}
 	}
+
 	pe.RawHeaders = data[0:headersSize]
 	pe.HeadersAsSection = &Section{"HeadersSection", headersSize, 0, headersSize, 0, 0, 0, 0, 0, 0, pe.RawHeaders, 0}
 	pe.readImports()
