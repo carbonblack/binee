@@ -280,7 +280,7 @@ func WinbaseHooks(emu *WinEmulator) {
 
 			var val string
 			for _, data := range emu.Opts.Env {
-				if data.Key == key {
+				if strings.ToLower(data.Key) == key {
 					val = data.Value
 					break
 				}
