@@ -5,4 +5,12 @@ func ShlobjCoreHooks(emu *WinEmulator) {
 		Parameters: []string{"hwnd", "a:pszPath", "csidl", "fCreate"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
+	emu.AddHook("", "SHChangeNotify", &Hook{
+		Parameters: []string{"wEventId", "uFlags", "dwItem1", "dwItem2"},
+		Fn:         SkipFunctionStdCall(false, 1),
+	})
+	emu.AddHook("", "IsUserAnAdmin", &Hook{
+		Parameters: []string{""},
+		Fn:         SkipFunctionStdCall(true, 1),
+	})
 }

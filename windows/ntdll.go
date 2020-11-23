@@ -1,6 +1,7 @@
 package windows
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -43,6 +44,28 @@ func allocateVirtualMemory(emu *WinEmulator, in *Instruction) bool {
 	}
 
 	return SkipFunctionStdCall(true, 0x0)(emu, in)
+}
+func QueryInformationProcess(emu *WinEmulator, in *Instruction) bool {
+	//this will be a continuous development process.
+	systemInformationClass := in.Args[0]
+
+	if systemInformationClass == SystemHandleInformation {
+
+		if emu.PtrSize == 4 {
+			info := struct {
+				ModulesCount  uint32
+				SYSTEM_MODULE uint32
+			}{
+				0x0,
+				0x0,
+			}
+			systemModuleInfo := new(bytes.Buffer)
+			binary.Write(systemModuleInfo, binary.LittleEndian, &info)
+			emu.Uc.MemWrite(in.Args[1], systemModuleInfo.Bytes())
+			return SkipFunctionStdCall(true, ERROR_SUCCESS)(emu, in)
+		}
+	}
+	return true
 }
 
 func NtdllHooks(emu *WinEmulator) {
@@ -151,6 +174,7 @@ func NtdllHooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, emu.Heap.Malloc(in.Args[2]))(emu, in)
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "RtlAcquirePebLock", &Hook{Parameters: []string{}})
 	emu.AddHook("", "RtlAcquireSRWLockExclusive", &Hook{
@@ -219,7 +243,7 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "RtlQueryHeapInformation", &Hook{
 		Parameters: []string{"HeapHandle", "HeapInformationClass", "HeapInformation", "HeapInformationLength", "ReturnLength"},
 	})
-	emu.AddHook("", "RtlSetLastWin32Error", &Hook{Parameters: []string{"err"}})
+	emu.AddHook("", "RtlSetLastWin32Error", &Hook{Parameters: []string{"err"}, NoLog: true})
 	emu.AddHook("", "RtlSetUnhandledExceptionFilter", &Hook{
 		Parameters: []string{"lpTopLevelExceptionFilter"},
 	})
@@ -241,7 +265,7 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "ZwConnectPort", &Hook{
 		Parameters: []string{"PortHandle", "PortName", "SecurityQos", "ClientView", "ServerView", "MaxMessageLength", "ConnectionInformation", "ConnectionInformationLength"},
 	})
-	emu.AddHook("", "ZwMapViewOfSection", &Hook{
+	emu.AddHook("", "ZwOfSection", &Hook{
 		Parameters: []string{"SectionHandle", "ProcessHandle", "BaseAddress", "ZeroBits", "CommitSize", "SectionOffset", "ViewSize", "InheritDisposition", "AllocationType", "Win32Protect"},
 	})
 	emu.AddHook("", "ZwOpenKey", &Hook{
@@ -249,9 +273,6 @@ func NtdllHooks(emu *WinEmulator) {
 	})
 	emu.AddHook("", "ZwQueryInformationProcess", &Hook{
 		Parameters: []string{"ProcessHandle", "ProcessInformationClass", "ProcessInformation", "ProcessInformationLength", "ReturnLength"},
-	})
-	emu.AddHook("", "ZwQuerySystemInformation", &Hook{
-		Parameters: []string{"SystemInformationClass", "SystemInformation", "SystemInformationLength", "ReturnLength"},
 	})
 	emu.AddHook("", "ZwQueryValueKey", &Hook{
 		Parameters: []string{"KeyHandle", "ValueName", "KeyValueInformationClass", "KeyValueInformation", "Length", "ResultLength"},
@@ -266,5 +287,118 @@ func NtdllHooks(emu *WinEmulator) {
 	emu.AddHook("", "ZwWaitForAlertByThreadId", &Hook{
 		Parameters: []string{"first", "second"},
 		Fn:         SkipFunctionStdCall(true, 0x0),
+	})
+
+	emu.AddHook("", "RtlExitUserThread", &Hook{
+		Parameters: []string{"dwExitCode"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			emu.Scheduler.ThreadEnded(emu.Scheduler.CurThreadId())
+			if len(emu.Scheduler.threads) == 0 {
+				return false
+			}
+			return true
+		},
+	})
+
+	emu.AddHook("", "RtlInitializeCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+	emu.AddHook("", "RtlDeleteCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		NoLog:      true,
+	})
+
+	emu.AddHook("", "RtlReAllocateHeap", &Hook{
+		Parameters: []string{"HeapHandle", "Flags", "MemoryPointer", "Size"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			oldAddr := in.Args[2]
+			oldSize := emu.Heap.Size(oldAddr)
+			newAddr, newSize := emu.Heap.ReAlloc(oldAddr, oldSize)
+			actualSize := newSize
+			if newSize > oldSize {
+				actualSize = oldSize
+			}
+			oldMemory := make([]byte, actualSize)
+			emu.Uc.MemReadInto(oldMemory, oldAddr)
+			emu.Uc.MemWrite(newAddr, oldMemory)
+			return SkipFunctionStdCall(true, newAddr)(emu, in)
+		},
+		NoLog: true,
+	})
+
+	emu.AddHook("", "RtlEncodePointer", &Hook{
+		Parameters: []string{"ptr"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[0])(emu, in)
+		},
+		NoLog: true,
+	})
+	emu.AddHook("", "RtlDecodePointer", &Hook{
+		Parameters: []string{"ptr"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionStdCall(true, in.Args[0])(emu, in)
+		},
+		NoLog: true,
+	})
+
+	emu.AddHook("", "RtlEnterCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(false, 0),
+		NoLog:      true,
+	})
+	emu.AddHook("", "RtlLeaveCriticalSection", &Hook{
+		Parameters: []string{"lpCriticalSection"},
+		Fn:         SkipFunctionStdCall(false, 0),
+		NoLog:      true,
+	})
+	emu.AddHook("", "RtlSizeHeap", &Hook{
+		Parameters: []string{"heap", "flags", "ptr"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			size := emu.Heap.Size(in.Args[2])
+			if size != 0 {
+				return SkipFunctionStdCall(true, size)(emu, in)
+
+			}
+			return SkipFunctionStdCall(true, 0xFFFFFFFF)(emu, in)
+		},
+	})
+
+	emu.AddHook("", "ZwQuerySystemInformation", &Hook{
+		Parameters: []string{"SystemInformationClass", "SystemInformation", "SystemInformationLength", "ReturnLength"},
+		Fn:         QueryInformationProcess,
+	})
+
+	emu.AddHook("", "RtlQueryPerformanceCounter", &Hook{
+		Parameters: []string{},
+		Fn:         SkipFunctionStdCall(false, ERROR_SUCCESS),
+	})
+
+	emu.AddHook("", "RtlInitializeSListHead", &Hook{
+		Parameters: []string{"ListHead"},
+	})
+
+	emu.AddHook("", "RtlRunOnceInitialize", &Hook{
+		Parameters: []string{"RunOnce"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	//Event To Windows
+	emu.AddHook("", "EtwRegisterTraceGuidsW", &Hook{
+		Parameters: []string{"RequestAddress", "RequestContext", "ControlGuid", "GuidCount", "TraceGuidReg", "w:MofImagePath", "w:ResourceName", "RegistrationHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+	emu.AddHook("", "EtwEventRegister", &Hook{
+		Parameters: []string{"ProviderId", "EnableCallback", "CallbackContext", "RegHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+
+	emu.AddHook("", "EtwNotificationRegister", &Hook{
+		Parameters: []string{"Guid", "Type", "callback", "Context", "RegHandle"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
+	emu.AddHook("", "EtwEventSetInformation", &Hook{
+		Parameters: []string{"_", "_", "_", "_", "_"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 }

@@ -3,21 +3,108 @@ package windows
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/unicorn-engine/unicorn/bindings/go/unicorn"
 	"strconv"
 	"time"
 
 	"github.com/carbonblack/binee/util"
 )
 
+func sprintf(emu *WinEmulator, in *Instruction, wide bool) {
+	var format string
+	if wide {
+		format = util.ReadWideChar(emu.Uc, in.Args[1], 0)
+	} else {
+		format = util.ReadASCII(emu.Uc, in.Args[1], 0)
+	}
+	parameters := util.ParseFormatter(format)
+	var startAddr uint64
+	//Get stack address
+	if emu.PtrSize == 4 {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	} else {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	}
+	//Jump 2 entries
+	startAddr += 3 * emu.PtrSize
+	in.VaArgsParse(startAddr, parameters)
+	in.FmtToParameters(parameters)
+}
+
+func swprintf(emu *WinEmulator, in *Instruction) bool {
+	format := util.ReadWideChar(emu.Uc, in.Args[1], 0)
+	parameters := util.ParseFormatter(format)
+	for i, v := range parameters {
+		if v == "s" {
+			parameters[i] = "S"
+		}
+	}
+	var startAddr uint64
+	//Get stack address
+	if emu.PtrSize == 4 {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	} else {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	}
+	//Jump 3 entries
+	startAddr += 3 * emu.PtrSize
+	in.VaArgsParse(startAddr, parameters)
+	in.FmtToParameters(parameters)
+	return true
+}
+
+func vswprintf(emu *WinEmulator, in *Instruction) bool {
+	format := util.ReadWideChar(emu.Uc, in.Args[1], 0)
+	parameters := util.ParseFormatter(format)
+	for i, v := range parameters {
+		if v == "s" {
+			parameters[i] = "S"
+		}
+	}
+	startAddr := in.Args[2]
+	in.VaArgsParse(startAddr, parameters)
+	in.FmtToParameters(parameters)
+	return true
+}
+
+func printf(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[0] == 'w'
+	var format string
+	if wide {
+		format = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		format = util.ReadASCII(emu.Uc, in.Args[0], 0)
+
+	}
+	parameters := util.ParseFormatter(format)
+	var startAddr uint64
+	//Get stack address
+	if emu.PtrSize == 4 {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	} else {
+		startAddr, _ = emu.Uc.RegRead(unicorn.X86_REG_ESP)
+	}
+	//Jump 2 entries
+	startAddr += 2 * emu.PtrSize
+	in.VaArgsParse(startAddr, parameters)
+	in.FmtToParameters(parameters)
+	return SkipFunctionCdecl(false, 0)(emu, in)
+}
 func fopen(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
-	path := util.ReadASCII(emu.Uc, in.Args[0], 0)
+	wide := in.Hook.Name[1] == 'w'
+	var path string
+	if wide {
+		path = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		path = util.ReadASCII(emu.Uc, in.Args[0], 0)
+	}
 
 	if handle, err := emu.OpenFile(path, 0); err == nil {
 		addr := emu.Heap.Malloc(256)
 		emu.Handles[addr] = handle
 		return SkipFunctionStdCall(true, addr)
 	} else {
-		return SkipFunctionStdCall(true, 0xffffffff)
+		return SkipFunctionStdCall(true, 0)
 	}
 }
 
@@ -52,7 +139,16 @@ func fclose(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instru
 	handle.Close()
 	return SkipFunctionStdCall(true, 0x0)
 }
-
+func fcloseAll(emu *WinEmulator, in *Instruction) bool {
+	numberClosed := 0
+	for _, handle := range emu.Handles {
+		if handle.File != nil {
+			handle.Close()
+			numberClosed += 1
+		}
+	}
+	return SkipFunctionStdCall(true, uint64(numberClosed))(emu, in)
+}
 func fread(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
 	bufAddr := in.Args[0]
 	size := in.Args[1]
@@ -78,17 +174,17 @@ func fwrite(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instru
 	handleAddr := in.Args[3]
 	handle := emu.Handles[handleAddr]
 	if handle == nil {
-		return SkipFunctionStdCall(true, 0x0)
+		return SkipFunctionCdecl(true, 0x0)
 	}
 	if size == 0 || count == 0 {
-		return SkipFunctionStdCall(true, 0x0)
+		return SkipFunctionCdecl(true, 0x0)
 	}
 	out, err := emu.Uc.MemRead(bufAddr, size*count)
 	if err != nil {
-		return SkipFunctionStdCall(true, uint64(0))
+		return SkipFunctionCdecl(true, uint64(0))
 	}
 	handle.Write(out)
-	return SkipFunctionStdCall(true, uint64(len(out)))
+	return SkipFunctionCdecl(true, uint64(len(out))/size)
 }
 
 func fputs(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruction) bool {
@@ -103,9 +199,46 @@ func fputs(emu *WinEmulator, in *Instruction) func(emu *WinEmulator, in *Instruc
 	return SkipFunctionStdCall(true, uint64(len(out)))
 }
 
+func getenv(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[0:2] == "_w"
+	var key string
+	if wide {
+		key = util.ReadWideChar(emu.Uc, in.Args[0], 0)
+	} else {
+		key = util.ReadASCII(emu.Uc, in.Args[0], 0)
+	}
+
+	var val string
+	for _, data := range emu.Opts.Env {
+		if data.Key == key {
+			val = data.Value
+			break
+		}
+	}
+
+	if val != "" {
+		buf := []byte(val)
+		if wide {
+			buf = append(buf, 0, 0)
+		} else {
+			buf = append(buf, 0)
+		}
+		addr := emu.Heap.Malloc(uint64(len(buf)))
+		if err := emu.Uc.MemWrite(addr, buf); err == nil {
+			return SkipFunctionCdecl(true, addr)(emu, in)
+		}
+	}
+	// set last error to 0xcb
+	return SkipFunctionCdecl(true, 0x0)(emu, in)
+}
+
 func UcrtBase32Hooks(emu *WinEmulator) {
-	emu.AddHook("", "__acrt_iob_func", &Hook{Parameters: []string{}})
-	emu.AddHook("", "_controlfp", &Hook{Parameters: []string{"unNew", "unMask"}})
+	emu.AddHook("", "__acrt_iob_func", &Hook{Parameters: []string{}, NoLog: true})
+	emu.AddHook("", "_controlfp", &Hook{
+		Parameters: []string{"unNew", "unMask"},
+		Fn:         SkipFunctionCdecl(true, 0),
+	})
+
 	emu.AddHook("", "__dllonexit", &Hook{Parameters: []string{"func", "pbegin", "pend"}})
 	emu.AddHook("", "__stdio_common_vfprintf", &Hook{
 		Parameters: []string{"options", "stream", "a:format64", "a:format32"},
@@ -120,6 +253,29 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			fstring := in.vfprintfHelper(3)
 			emu.Uc.MemWrite(in.Args[1], []byte(fstring))
 			return SkipFunctionCdecl(true, uint64(len(fstring)))(emu, in)
+		},
+	})
+
+	emu.AddHook("", "__stdio_common_vfwprintf", &Hook{
+		Parameters: []string{"stream", "_:", "_:", "w:format"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			formatStringAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 4)
+			formatString := util.ReadWideChar(emu.Uc, formatStringAddr, 0)
+			startVarArgsAddr := util.GetStackEntryByIndex(emu.Uc, emu.UcMode, 6)
+			numFormatters := util.ParseFormatter(formatString)
+
+			// This updates values and args
+			in.VaArgsParse(startVarArgsAddr, numFormatters)
+			//vfwprintf actually treats %s as wide string
+			for i, v := range numFormatters {
+				if v == "s" {
+					numFormatters[i] = "S"
+				}
+			}
+			// This updates parameters
+			in.FmtToParameters(numFormatters)
+
+			return SkipFunctionCdecl(false, 0)(emu, in)
 		},
 	})
 
@@ -166,6 +322,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "_execute_onexit_table", &Hook{Parameters: []string{"table"}})
 	emu.AddHook("", "_get_initial_narrow_environment", &Hook{Parameters: []string{}, Fn: SkipFunctionStdCall(false, 0)})
 	emu.AddHook("", "_initialize_onexit_table", &Hook{Parameters: []string{"table"}})
+	emu.AddHook("", "_o__initialize_onexit_table", &Hook{
+		Parameters: []string{"table"},
+		Fn:         SkipFunctionCdecl(true, 0)})
+
 	emu.AddHook("", "_invalid_parameter_noinfo", &Hook{Parameters: []string{}})
 	emu.AddHook("", "_invalid_parameter_noinfo_noreturn", &Hook{Parameters: []string{}})
 	emu.AddHook("", "_initterm_e", &Hook{Parameters: []string{"PVFV", "PVFV"}, Fn: SkipFunctionCdecl(true, 0)})
@@ -191,12 +351,12 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	emu.AddHook("", "__set_app_type", &Hook{Parameters: []string{"appType"}})
 	emu.AddHook("", "_set_fmode", &Hook{Parameters: []string{"mode"}})
 	emu.AddHook("", "__p__fmode", &Hook{
-		Parameters: []string{"mode"},
-		Fn:         SkipFunctionCdecl(true, 0x4000),
+		Parameters: []string{""},
+		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Fmode),
 	})
 	emu.AddHook("", "__p__commode", &Hook{
-		Parameters: []string{"mode"},
-		Fn:         SkipFunctionCdecl(true, 0x4000),
+		Parameters: []string{""},
+		Fn:         SkipFunctionCdecl(true, emu.GlobalVariables.Commode),
 	})
 	emu.AddHook("", "_Xtime_get_ticks", &Hook{
 		Parameters: []string{"lpFileTime"},
@@ -271,6 +431,12 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			return fopen(emu, in)(emu, in)
 		},
 	})
+	emu.AddHook("", "_wfopen", &Hook{
+		Parameters: []string{"w:filename", "w:mode"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return fopen(emu, in)(emu, in)
+		},
+	})
 	emu.AddHook("", "fseek", &Hook{
 		Parameters: []string{"stream", "offset", "origin"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -288,6 +454,10 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return fclose(emu, in)(emu, in)
 		},
+	})
+	emu.AddHook("", "_fcloseall", &Hook{
+		Parameters: []string{""},
+		Fn:         fcloseAll,
 	})
 	emu.AddHook("", "fread", &Hook{
 		Parameters: []string{"buffer", "size", "count", "stream"},
@@ -325,14 +495,23 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 	})
 
 	emu.AddHook("", "wcslen", &Hook{
-		Parameters: []string{"str"},
+		Parameters: []string{"w:str"},
 	})
 
 	emu.AddHook("", "wcslen", &Hook{
-		Parameters: []string{"str"},
+		Parameters: []string{"w:str"},
 	})
 	emu.AddHook("", "wcsncpy", &Hook{
 		Parameters: []string{"strDest", "strSource", "count"},
+	})
+
+	emu.AddHook("", "printf", &Hook{
+		Parameters: []string{"a:format"},
+		Fn:         printf,
+	})
+	emu.AddHook("", "wprintf", &Hook{
+		Parameters: []string{"w:format"},
+		Fn:         printf,
 	})
 	emu.AddHook("", "wcsncpy_s", &Hook{
 		Parameters: []string{"strDest", "numElements", "strSource", "count"},
@@ -345,11 +524,17 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "sprintf", &Hook{
-		Parameters: []string{"buffer", "a:format", "..."},
+		Parameters: []string{"buffer", "a:format"},
+		Fn: func(emulator *WinEmulator, in *Instruction) bool {
+			sprintf(emu, in, false)
+			return true
+		},
 	})
 	emu.AddHook("", "swprintf", &Hook{
-		Parameters: []string{"buffer", "count", "a:format", "..."},
+		Parameters: []string{"w:buffer", "w:format"},
+		Fn:         swprintf,
 	})
+
 	emu.AddHook("", "strcat", &Hook{
 		Parameters: []string{"a:string1", "a:string2"},
 	})
@@ -381,5 +566,61 @@ func UcrtBase32Hooks(emu *WinEmulator) {
 			util.PutPointer(emu.Uc, emu.PtrSize, in.Args[0], curTime)
 			return SkipFunctionCdecl(true, curTime)(emu, in)
 		},
+	})
+
+	emu.AddHook("", "puts", &Hook{
+		Parameters: []string{"a:str"},
+		Fn:         SkipFunctionCdecl(true, 0),
+	})
+	emu.AddHook("", "putc", &Hook{
+		Parameters: []string{"c:character", "stream"},
+		Fn:         SkipFunctionCdecl(true, 1),
+	})
+	emu.AddHook("", "strncmp", &Hook{
+		Parameters: []string{"a:string1", "a:string2", "size"},
+	})
+	emu.AddHook("", "_setmbcp", &Hook{Parameters: []string{"codepage"}}) //Fn:SkipFunctionCdecl(true,0),
+
+	emu.AddHook("", "_onexit", &Hook{
+		Parameters: []string{"function"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			return SkipFunctionCdecl(true, in.Args[0])(emu, in)
+		},
+	})
+	emu.AddHook("", "getchar", &Hook{
+		Fn: SkipFunctionCdecl(true, 0x13),
+	})
+
+	emu.AddHook("", "toupper", &Hook{
+		Parameters: []string{"c:c"},
+		NoLog:      true,
+	})
+	emu.AddHook("", "tolower", &Hook{
+		Parameters: []string{"c:c"},
+		NoLog:      true,
+	})
+	emu.AddHook("", "getenv", &Hook{
+		Parameters: []string{"a:varname"},
+		Fn:         getenv,
+	})
+	emu.AddHook("", "_wgetenv", &Hook{
+		Parameters: []string{"a:varname"},
+		Fn:         getenv,
+	})
+	emu.AddHook("", "_isleadbyte_l", &Hook{
+		Parameters: []string{"c"},
+		NoLog:      true,
+	})
+
+	emu.AddHook("", "atof", &Hook{
+		Parameters: []string{"w:string"},
+	})
+
+	emu.AddHook("", "vswprintf", &Hook{
+		Parameters: []string{"ws", "w:format", "_:"},
+		Fn:         vswprintf,
+	})
+	emu.AddHook("", "_vswprintf_l", &Hook{
+		NoLog: true,
 	})
 }

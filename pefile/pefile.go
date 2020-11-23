@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -161,26 +162,29 @@ type ImportInfo struct {
 }
 
 type PeFile struct {
-	Path             string
-	Name             string //import name, apiset or on disk
-	RealName         string //on disk short name
-	Sha256           string
-	DosHeader        *DosHeader
-	CoffHeader       *CoffHeader
-	OptionalHeader   interface{}
-	PeType           PeType
-	Sections         []*Section
-	sectionHeaders   []*SectionHeader
-	HeadersAsSection *Section
-	Imports          []*ImportInfo
-	Exports          []*Export
-	ExportNameMap    map[string]*Export
-	ExportOrdinalMap map[int]*Export
-	Apisets          map[string][]string
-	Size             int64
-	RawHeaders       []byte
-	oldImageBase     uint64
-	ImageSize        int64
+	Path                      string
+	Name                      string //import name, apiset or on disk
+	RealName                  string //on disk short name
+	Sha256                    string
+	DosHeader                 *DosHeader
+	CoffHeader                *CoffHeader
+	OptionalHeader            interface{}
+	PeType                    PeType
+	Sections                  []*Section
+	sectionHeaders            []*SectionHeader
+	HeadersAsSection          *Section
+	Imports                   []*ImportInfo
+	Exports                   []*Export
+	ExportNameMap             map[string]*Export
+	ExportOrdinalMap          map[int]*Export
+	ForwardedExports          map[string]ForwardedExport
+	ForwardedExportsByOrdinal map[uint16]ForwardedExport
+	Apisets                   map[string][]string
+	Size                      int64
+	RawHeaders                []byte
+	oldImageBase              uint64
+	ImageSize                 int64
+	ResourceDirectoryRoot     ResourceDirectory
 }
 
 func entropy(bs []byte) float64 {
@@ -408,18 +412,26 @@ func analyzePeFile(data []byte, pe *PeFile) error {
 		pe.Sections[i].Entropy = entropy(raw)
 	}
 
-	pe.RawHeaders = data[0:pe.Sections[0].Offset]
-	pe.HeadersAsSection = &Section{"HeadersSection", uint32(len(pe.RawHeaders)), 0, uint32(len(pe.RawHeaders)), 0, 0, 0, 0, 0, 0, pe.RawHeaders, 0}
+	var headersSize uint32
+	headersSize = math.MaxUint32
+	for _, section := range pe.Sections {
+		if section.Offset < headersSize {
+			headersSize = section.Offset
+		}
+	}
+
+	pe.RawHeaders = data[0:headersSize]
+	pe.HeadersAsSection = &Section{"HeadersSection", headersSize, 0, headersSize, 0, 0, 0, 0, 0, 0, pe.RawHeaders, 0}
 	pe.readImports()
 	if err = pe.readExports(); err != nil {
 		return err
 	}
 	pe.readApiset()
-
+	pe.readResources()
 	return nil
 }
 
-func readString(b []byte) string {
+func ReadString(b []byte) string {
 	for i := 0; ; i++ {
 		if b[i] == 0x0 {
 			return string(b[0:i])
@@ -442,8 +454,7 @@ type ExportDirectory struct {
 }
 
 type ExportAddressTable struct {
-	ExportRva  uint32
-	ForwardRva uint32
+	Rva uint32 //This might be a forward rva or rva to export entry.
 }
 
 type Export struct {
@@ -452,12 +463,24 @@ type Export struct {
 	Rva     uint32
 }
 
+//https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#export-address-table
+//the DLL's name and the export ordinal, like "otherdll.#19".
+//http://www.pelib.com/resources/luevel.txt
+type ForwardedExport struct {
+	DllName  string
+	FuncName string
+	Ordinal  uint16
+}
+
 func (pe *PeFile) readExports() error {
 	var exportsRva uint32
+	var size uint32
 	if pe.PeType == Pe32 {
 		exportsRva = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[0].VirtualAddress
+		size = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[0].Size
 	} else {
 		exportsRva = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[0].VirtualAddress
+		size = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[0].Size
 	}
 
 	//get the section with exports data
@@ -490,20 +513,22 @@ func (pe *PeFile) readExports() error {
 	pe.ExportNameMap = make(map[string]*Export)
 	pe.ExportOrdinalMap = make(map[int]*Export)
 
+	pe.ForwardedExports = make(map[string]ForwardedExport)
+	pe.ForwardedExportsByOrdinal = make(map[uint16]ForwardedExport)
+
+	//Reading named functions
 	for i := 0; i < int(exportDirectory.NumberOfNamePointers); i++ {
 		// seek to index in names table
 		if _, err := r.Seek(int64(namesTableRVA+uint32(i*4)), io.SeekStart); err != nil {
 			return fmt.Errorf("Error seeking %s for exports names table: %v", pe.Path, err)
 		}
-
 		exportAddressTable := ExportAddressTable{}
 		if err := binary.Read(r, binary.LittleEndian, &exportAddressTable); err != nil {
 			return fmt.Errorf("Error retrieving %s exports address table: %v", pe.Path, err)
 		}
 
-		name := readString(section.Raw[exportAddressTable.ExportRva-section.VirtualAddress:])
+		name := ReadString(section.Raw[exportAddressTable.Rva-section.VirtualAddress:])
 
-		// get first Name in array
 		ordinal = binary.LittleEndian.Uint16(section.Raw[ordinalsTableRVA+uint32(i*2) : ordinalsTableRVA+uint32(i*2)+2])
 
 		// seek to ordinals table
@@ -517,13 +542,79 @@ func (pe *PeFile) readExports() error {
 			return fmt.Errorf("Error retrieving %s ordinals table: %v", pe.Path, err)
 		}
 
-		rva := exportOrdinalTable.ExportRva
-
+		rva := exportOrdinalTable.Rva
+		//Check whether its forwarded or not
+		if rva < exportsRva+size && rva > exportsRva {
+			//Its in the range of exports, its forwarded.
+			if _, err := r.Seek(int64(rva-exportsRva), io.SeekStart); err != nil {
+				return fmt.Errorf("Error seeking forwarded name for exports names table: %v", err)
+			}
+			forwardedExportRaw := ReadString(section.Raw[rva-section.VirtualAddress:])
+			split := strings.Split(forwardedExportRaw, ".")
+			ordinalNum := 0
+			funcName := ""
+			var err error
+			if split[1][0] == '#' {
+				numStr := split[1][1:]
+				if ordinalNum, err = strconv.Atoi(numStr); err != nil {
+					return err
+				}
+			} else {
+				funcName = split[1]
+			}
+			forwardedExport := ForwardedExport{strings.ToLower(split[0]), funcName, uint16(ordinalNum)}
+			if ordinalNum == 0 {
+				pe.ForwardedExports[name] = forwardedExport
+			} else {
+				pe.ForwardedExportsByOrdinal[ordinal] = forwardedExport
+			}
+			continue
+		}
 		export := &Export{name, ordinal + uint16(exportDirectory.OrdinalBase), rva}
 		pe.Exports = append(pe.Exports, export)
 		pe.ExportNameMap[name] = export
-		pe.ExportOrdinalMap[int(ordinal)] = export
+		pe.ExportOrdinalMap[int(ordinal+uint16(exportDirectory.OrdinalBase))] = export
+	}
+	//Reading non named functions
+	for i := 0; i < int(exportDirectory.NumberOfFunctions); i++ {
+		//Check if exists. (its a named function)
+		if _, ok := pe.ExportOrdinalMap[i+int(exportDirectory.OrdinalBase)]; ok {
+			continue
+		}
+		if _, err := r.Seek(int64(uint32(i)*4+exportDirectory.FunctionsRva-section.VirtualAddress), io.SeekStart); err != nil {
+			return fmt.Errorf("Error seeking %s ordinals table: %v", pe.Path, err)
+		}
+		// get ordinal address table
+		var rva uint32
+		if err := binary.Read(r, binary.LittleEndian, &rva); err != nil {
+			return fmt.Errorf("Error retrieving %s ordinals table: %v", pe.Path, err)
+		}
 
+		if rva < exportsRva+size && rva > exportsRva {
+			//Its in the range of exports, its forwarded.
+			if _, err := r.Seek(int64(rva-exportsRva), io.SeekStart); err != nil {
+				return fmt.Errorf("Error seeking forwarded name for exports names table: %v", err)
+			}
+			forwardedExportRaw := ReadString(section.Raw[rva-section.VirtualAddress:])
+			split := strings.Split(forwardedExportRaw, ".")
+			ordinalNum := 0
+			funcName := ""
+			var err error
+			if split[1][0] == '#' {
+				numStr := split[1][1:]
+				if ordinalNum, err = strconv.Atoi(numStr); err != nil {
+					return err
+				}
+			} else {
+				funcName = split[1]
+			}
+			forwardedExport := ForwardedExport{strings.ToLower(split[0]), funcName, uint16(ordinalNum)}
+			pe.ForwardedExportsByOrdinal[uint16(i+int(exportDirectory.OrdinalBase))] = forwardedExport
+			continue
+		}
+		export := &Export{"", ordinal + uint16(exportDirectory.OrdinalBase), rva}
+		pe.Exports = append(pe.Exports, export)
+		pe.ExportOrdinalMap[int(ordinal)+int(exportDirectory.OrdinalBase)] = export
 	}
 
 	return nil
@@ -632,7 +723,7 @@ func (pe *PeFile) readImports() {
 		}
 
 		requiredSection := pe.getSectionByRva(uint64(importDirectory.NameRva))
-		name := strings.ToLower(readString(requiredSection.Raw[importDirectory.NameRva-requiredSection.VirtualAddress:]))
+		name := strings.ToLower(ReadString(requiredSection.Raw[importDirectory.NameRva-requiredSection.VirtualAddress:]))
 
 		if pe.PeType == Pe32 {
 			var thunk1 uint32
@@ -669,7 +760,7 @@ func (pe *PeFile) readImports() {
 					// might be in a different section
 					if sec := pe.getSectionByRva(uint64(thunk1) + 2); sec != nil {
 						v := thunk1 + 2 - sec.VirtualAddress
-						funcName := readString(sec.Raw[v:])
+						funcName := ReadString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, thunk2, 0})
 						thunk2 += 4
 					}
@@ -709,13 +800,257 @@ func (pe *PeFile) readImports() {
 					// might be in a different section
 					if sec := pe.getSectionByRva(thunk1 + 2); sec != nil {
 						v := uint32(thunk1) + 2 - sec.VirtualAddress
-						funcName := readString(sec.Raw[v:])
+						funcName := ReadString(sec.Raw[v:])
 						pe.Imports = append(pe.Imports, &ImportInfo{name, funcName, uint32(thunk2), 0})
 						thunk2 += 8
 					}
 				}
 			}
 		}
+	}
+}
+
+type ResourceDirectoryRAW struct {
+	Characteristics      uint32
+	TimeDateStamp        uint32
+	MajorVersion         uint16
+	MinorVersion         uint16
+	NumberOfNamedEntries uint16
+	NumberOfIdEntries    uint16
+}
+type ResourceDirectory struct {
+	depth                uint32
+	Characteristics      uint32
+	TimeDateStamp        uint32
+	MajorVersion         uint16
+	MinorVersion         uint16
+	NumberOfNamedEntries uint16
+	NumberOfIdEntries    uint16
+	ResType              string
+	Entries              []ResourceDirectoryEntry
+}
+
+type ResourceDirectoryEntryPESTRUCTURE struct {
+	NameOffset   uint32
+	OffsetToData uint32
+}
+type ResourceDirectoryEntry struct {
+	NameOffset            uint32
+	OffsetToData          uint32
+	Name                  string
+	ID                    uint32
+	ResourceDirectoryNode ResourceDirectory
+	ResourceDataEntryNode ResourceDataEntry
+}
+
+type ResourceDataEntry struct {
+	OffsetToData uint32
+	Size         uint32
+	CodePage     uint32
+	Reserved     uint32
+}
+
+func WideStringToString(wideString []byte, size int) string {
+	ret := make([]byte, 0, 0)
+	for i := 0; i < size; i += 2 {
+		b := wideString[i : i+2]
+
+		if b[0] == 0x00 && b[1] == 0x00 {
+			break
+		}
+
+		switch b[0] {
+		case 0x09:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x74)
+		case 0x0a:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x6e)
+		case 0x0b:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x76)
+		case 0x0c:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x66)
+		case 0x0d:
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x5c)
+			ret = append(ret, 0x72)
+		default:
+			ret = append(ret, b[0])
+		}
+	}
+
+	return string(ret)
+}
+
+func GetResourceType(resourceType uint32) string {
+	values := []string{"CURSOR", "BITMAP", "ICON", "MENU", "DIALOG", "STRING", "FONTDIR", "FONT", "ACCELERATOR", "RCDATA", "MESSAGETABLE", "GROUP_CURSOR", "UNDOCUMENTED", "GROUP_ICON", "UNDOCUMENTED", "VERSION", "DLGINCLUDE", "UNDOCUMENTED", "PLUGPLAY", "VXD", "ANICURSOR", "ANIICON", "HTML", "MANIFEST"}
+	if int(resourceType) > len(values) {
+		return "UNDOCUMENTED"
+	}
+	return values[resourceType-1]
+}
+
+func (pe *PeFile) readDirectoryRecursively(rootRva uint32, currentDirectoryRva uint32, depth uint32) (ResourceDirectory, error) {
+	section := pe.getSectionByRva(uint64(currentDirectoryRva))
+	var ret ResourceDirectory
+	r := bytes.NewReader(section.Raw)
+	rdRaw := ResourceDirectoryRAW{}
+	if _, err := r.Seek(int64(currentDirectoryRva-section.VirtualAddress), io.SeekStart); err != nil {
+		return ResourceDirectory{}, err
+	}
+	if err := binary.Read(r, binary.LittleEndian, &rdRaw); err != nil {
+		return ResourceDirectory{}, err
+	}
+	numberOfEntries := rdRaw.NumberOfIdEntries + rdRaw.NumberOfNamedEntries
+	currentEntry, _ := r.Seek(0, io.SeekCurrent)
+	for i := uint16(0); i < numberOfEntries; i++ {
+		var resourceDirectoryEntry ResourceDirectoryEntry
+		rdeRaw := ResourceDirectoryEntryPESTRUCTURE{}
+		//In case of seeking to name, we have to seek back.
+		if _, err := r.Seek(currentEntry, io.SeekStart); err != nil {
+			return ResourceDirectory{}, err
+		}
+		if err := binary.Read(r, binary.LittleEndian, &rdeRaw); err != nil {
+			return ResourceDirectory{}, err
+		}
+		currentEntry, _ = r.Seek(0, io.SeekCurrent)
+		isID := rdeRaw.NameOffset&(0x80000000) == 0
+		id := rdeRaw.NameOffset &^ (0x80000000)
+		if !isID {
+
+			if _, err := r.Seek(int64(id+(rootRva-section.VirtualAddress)), io.SeekStart); err != nil {
+				return ResourceDirectory{}, err
+			}
+			//No need for the structure ResourceDirStringU
+			var length uint16
+			if err := binary.Read(r, binary.LittleEndian, &length); err != nil {
+				return ResourceDirectory{}, err
+			}
+			wideString := make([]byte, length*2)
+			r.Read(wideString)
+			resourceDirectoryEntry.Name = WideStringToString(wideString, int(length*2))
+		} else {
+			resourceDirectoryEntry.ID = id & 0xffff
+		}
+		isDirectory := rdeRaw.OffsetToData&(0x80000000) > 0
+		address := rdeRaw.OffsetToData &^ (0x80000000)
+		if isDirectory {
+			temp, err := pe.readDirectoryRecursively(rootRva, rootRva+address, depth+1)
+			if err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDirectoryEntry.ResourceDirectoryNode = temp
+		} else {
+
+			if _, err := r.Seek(int64(address+(rootRva-section.VirtualAddress)), io.SeekStart); err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDataEntry := ResourceDataEntry{}
+			if err := binary.Read(r, binary.LittleEndian, &resourceDataEntry); err != nil {
+				return ResourceDirectory{}, err
+			}
+			resourceDirectoryEntry.ResourceDataEntryNode = resourceDataEntry
+		}
+		resourceDirectoryEntry.NameOffset = rdeRaw.NameOffset
+		resourceDirectoryEntry.OffsetToData = rdeRaw.OffsetToData
+		ret.Entries = append(ret.Entries, resourceDirectoryEntry)
+	}
+	ret.NumberOfIdEntries = rdRaw.NumberOfIdEntries
+	ret.NumberOfNamedEntries = rdRaw.NumberOfNamedEntries
+	ret.Characteristics = rdRaw.Characteristics
+	ret.MajorVersion = rdRaw.MajorVersion
+	ret.MinorVersion = rdRaw.MinorVersion
+	ret.TimeDateStamp = rdRaw.TimeDateStamp
+	ret.depth = depth
+	return ret, nil
+}
+func searchEntry(directoryEntry ResourceDirectory, name interface{}) *ResourceDirectoryEntry {
+	for _, entry := range directoryEntry.Entries {
+		switch name.(type) {
+		case uint32:
+			if entry.ID == name.(uint32) {
+				return &entry
+			}
+		case string:
+			if entry.Name == name.(string) {
+				return &entry
+			}
+
+		}
+	}
+	return nil
+}
+
+func FindResourceType(root ResourceDirectory, typeID interface{}) ResourceDirectory {
+	retType := searchEntry(root, typeID)
+	return retType.ResourceDirectoryNode
+}
+func FindResource(root ResourceDirectory, name interface{}, typeID interface{}) *ResourceDataEntry {
+
+	requiredType := searchEntry(root, typeID)
+	if requiredType == nil {
+		return nil
+	}
+	requiredName := searchEntry(requiredType.ResourceDirectoryNode, name)
+	if requiredName == nil {
+		return nil
+	}
+	//TODO: add support for languages
+	return &requiredName.ResourceDirectoryNode.Entries[0].ResourceDataEntryNode
+}
+func (pe *PeFile) readResources() error {
+	var resourcesRVA uint32
+	var err error
+
+	if pe.PeType == Pe32 {
+		resourcesRVA = pe.OptionalHeader.(*OptionalHeader32).DataDirectories[2].VirtualAddress
+	} else {
+		resourcesRVA = pe.OptionalHeader.(*OptionalHeader32P).DataDirectories[2].VirtualAddress
+	}
+
+	if resourcesRVA != 0 {
+		if pe.ResourceDirectoryRoot, err = pe.readDirectoryRecursively(resourcesRVA, resourcesRVA, 0); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func printLanguages(directory ResourceDirectory) {
+	for j, entry := range directory.Entries {
+		if entry.Name != "" {
+			fmt.Printf("\t\t(%d)Language:%s\n", j, entry.Name)
+		} else {
+			primaryLanguage := entry.ID & 0xff
+			subLanguage := (entry.ID & 0xff00) >> 8
+			fmt.Printf("\t\t(%d)lang id: 0x%x (Primary Language ID:0x%x| SubLanguage ID:0x%x)\n ", j, entry.ID, primaryLanguage, subLanguage)
+		}
+	}
+}
+func printActual(directory ResourceDirectory) {
+	for j, entry := range directory.Entries {
+		if entry.Name != "" {
+			fmt.Printf("\t(%d)Name:%s\n", j, entry.Name)
+		} else {
+			fmt.Printf("\t(%d)ID:0x%x\n", j, entry.ID)
+		}
+		printLanguages(entry.ResourceDirectoryNode)
+	}
+}
+func (pe *PeFile) PrintResources() {
+	for i, entry := range pe.ResourceDirectoryRoot.Entries {
+		resourceType := GetResourceType(entry.ID)
+		if entry.Name != "" {
+			resourceType = entry.Name
+		}
+		fmt.Printf("(%d)Type:%s\n", i, resourceType)
+		printActual(entry.ResourceDirectoryNode)
 	}
 }
 

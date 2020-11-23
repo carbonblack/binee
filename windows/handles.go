@@ -2,19 +2,24 @@ package windows
 
 import (
 	"fmt"
+	"github.com/carbonblack/binee/pefile"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type Handle struct {
-	Path   string
-	Access int32
-	Pos    int64
-	File   *os.File
-	Info   os.FileInfo
-	RegKey *RegKey
-	Thread *Thread
+	Path              string
+	Access            int32
+	Pos               int64
+	File              *os.File
+	Info              os.FileInfo
+	RegKey            *RegKey
+	Thread            *Thread
+	ResourceDataEntry *pefile.ResourceDataEntry
+	Snapshot          *Snapshot
+	Process           *Process
+	Object            interface{}
 }
 
 func (handle *Handle) Close() {
@@ -67,7 +72,9 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 
 	//if file is open for writing, do all writes in temp folder
 	if access&GENERIC_WRITE == GENERIC_WRITE {
-		fd.Path = "temp/" + path
+		path = strings.Replace(path, ":", "_", -1)
+		fd.Path = filepath.Clean(filepath.Join("temp", path))
+		os.MkdirAll(filepath.Dir(fd.Path), 0755)
 		fd.File, err = os.OpenFile(fd.Path, os.O_RDWR|os.O_CREATE, 0755)
 	} else if strings.Contains(path, filepath.Base(emu.Binary)) {
 		fd.Path = emu.Binary
@@ -83,4 +90,15 @@ func (emu *WinEmulator) OpenFile(path string, access int32) (*Handle, error) {
 	fd.Info, _ = os.Stat(fd.Path)
 
 	return &fd, err
+}
+
+func (emu *WinEmulator) getProcessID(handle uint64) (uint32, error) {
+	if _, ok := emu.Handles[handle]; !ok {
+		return 0, fmt.Errorf("handle %x not found", handle)
+	}
+	if emu.Handles[handle].Process == nil {
+		return 0, fmt.Errorf("handle %x is not a process", handle)
+	}
+	return emu.Handles[handle].Process.the32ProcessID, nil
+
 }

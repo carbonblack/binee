@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/arch/x86/x86asm"
 
@@ -48,6 +49,21 @@ func (emu *WinEmulator) LoadHooks() {
 	UtilapiHooks(emu)
 	ShlobjCoreHooks(emu)
 	MemoryApiHooks(emu)
+	ToolHelpHooks(emu)
+	Internal(emu)
+	ShlwapiHooks(emu)
+	Processenv(emu)
+	Ktmw32Hooks(emu)
+	PsapiHooks(emu)
+	ConsoleApi(emu)
+	WinCryptHooks(emu)
+	Namedpipeapi(emu)
+	WininetHooks(emu)
+	DebugapiHooks(emu)
+	IOapisetHooks(emu)
+	SecuritybaseHooks(emu)
+	WinsockHooks(emu)
+	IphlpapiHooks(emu)
 }
 func (emu *WinEmulator) SetupHooks() error {
 	emu.Uc.HookAdd(uc.HOOK_CODE, HookCode(emu), 1, 0)
@@ -72,14 +88,8 @@ func (emu *WinEmulator) SetupHooks() error {
 // until the end of execution.
 func (emu *WinEmulator) Start() error {
 	emu.SetupHooks()
-
+	emu.startTime = time.Now()
 	emu.Uc.Start(emu.EntryPoint, 0x0)
-
-	if emu.Scheduler.CurThreadId() != 1 {
-		ip := emu.Scheduler.ThreadEnded(emu.Scheduler.CurThreadId())
-		emu.Uc.Start(ip, 0x0)
-	}
-
 	return nil
 }
 
@@ -100,56 +110,56 @@ func HookCode(emu *WinEmulator) func(mu uc.Unicorn, addr uint64, size uint32) {
 		}
 
 		instruction.Hook.Return = returns
+		if !instruction.Hook.NoLog {
 
-		if emu.logType == LogTypeJSON {
-			if buf, err := json.Marshal(instruction); err == nil {
-				if instruction.Hook.Implemented == true {
-					fmt.Println(string(buf))
-				}
-			} else {
-				fmt.Printf("{\"error\":\"%s\"},", err)
-			}
-		} else if emu.logType == LogTypeSlice {
-			if instruction.Hook.Implemented {
-				emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
-			}
-		} else {
-			if emu.Verbosity == 2 {
-				fmt.Println("---")
-				fmt.Println(emu.CPU.ReadRegisters())
-
-				if emu.UcMode == uc.MODE_32 {
-					emu.CPU.PrintStack(10)
+			if emu.logType == LogTypeJSON {
+				if buf, err := json.Marshal(instruction); err == nil {
+					if instruction.Hook.Implemented == true {
+						fmt.Println(string(buf))
+					}
 				} else {
-					emu.CPU.PrintStack(10)
+					fmt.Printf("{\"error\":\"%s\"},", err)
 				}
-				fmt.Println(instruction.StringHook())
-				fmt.Println(instruction)
-			} else if emu.Verbosity == 1 {
-				if s := instruction.StringHook(); s != "" {
-					fmt.Println(s)
+			} else if emu.logType == LogTypeSlice {
+				if instruction.Hook.Implemented {
+					emu.InstructionLog = append(emu.InstructionLog, instruction.Log())
 				}
-				fmt.Println(instruction)
 			} else {
-				if instruction.Hook.Implemented == true {
+				if emu.Verbosity == 2 {
+					fmt.Println("---")
+					fmt.Println(emu.CPU.ReadRegisters())
+					emu.CPU.PrintStack(10)
 					fmt.Println(instruction.StringHook())
+					fmt.Println(instruction)
+				} else if emu.Verbosity == 1 {
+					if s := instruction.StringHook(); s != "" {
+						fmt.Println(s)
+					} else {
+						fmt.Println(instruction)
+					}
+				} else {
+					if instruction.Hook.Implemented == true {
+						fmt.Println(instruction.StringHook())
+					}
 				}
-			}
 
-		}
-
-		if emu.Scheduler.CurThreadId() == 1 {
-			if doContinue == false {
-				mu.Stop()
 			}
 		}
 
-		if emu.Ticks%10 == 0 {
+		if doContinue == false {
+			mu.Stop()
+		}
+
+		if emu.Ticks%10 == 0 || emu.Scheduler.curThread.Status != 0 {
 			emu.Scheduler.DoSchedule()
 		}
 
 		// check that the emulation only emulates n ticks. If 0, continue
 		if emu.maxTicks > 0 && emu.Ticks > emu.maxTicks {
+			fmt.Fprintf(os.Stderr, "maxticks [0x%x] timeout", emu.maxTicks)
+			mu.Stop()
+		} else if emu.maxTime > 0 && time.Since(emu.startTime).Minutes() > float64(emu.maxTime) {
+			fmt.Fprintf(os.Stderr, "maxtime [%d] timeout", emu.maxTime)
 			mu.Stop()
 		}
 	}
@@ -203,6 +213,7 @@ type Hook struct {
 	Return      uint64
 	HookStatus  string
 	Lib         string
+	NoLog       bool
 }
 
 type Instruction struct {
@@ -299,10 +310,18 @@ func (self *Instruction) ParseValues() {
 			self.Hook.Values[i] = ""
 		case "w:":
 			s := util.ReadWideChar(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\u0000")
+			}
 		case "a:":
 			s := util.ReadASCII(self.emu.Uc, self.Args[i], 0)
-			self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			if len(s) == 0 {
+				self.Hook.Values[i] = self.Args[i]
+			} else {
+				self.Hook.Values[i] = strings.TrimRight(s, "\x00")
+			}
 		case "v:":
 			continue
 		case "s:":
@@ -332,6 +351,10 @@ func (i *Instruction) StringHook() string {
 
 		if len(i.Hook.Parameters[j]) < 2 {
 			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
+
+			if j != len(i.Args)-1 {
+				ret += fmt.Sprintf(", ")
+			}
 			continue
 		}
 
@@ -340,10 +363,19 @@ func (i *Instruction) StringHook() string {
 			continue
 		case "w:":
 			s := util.ReadWideChar(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			}
 		case "a:":
 			s := util.ReadASCII(i.emu.Uc, i.Args[j], 0)
-			ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+			if len(s) == 0 {
+				ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j][2:], i.Args[j])
+			} else {
+				ret += fmt.Sprintf("%s = '%s'", i.Hook.Parameters[j][2:], s)
+
+			}
 		case "v:":
 			ret += fmt.Sprintf("%s = %+v", i.Hook.Parameters[j][2:], i.Hook.Values[j])
 		case "s:":
@@ -352,6 +384,14 @@ func (i *Instruction) StringHook() string {
 			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], uint32(i.Hook.Values[j].(uint64)))
 		case "l:":
 			ret += fmt.Sprintf("%s = %d", i.Hook.Parameters[j][2:], i.Hook.Values[j])
+		case "c:":
+			if i.Hook.Values[j].(uint64) == uint64('\n') {
+				ret += fmt.Sprintf("%s = \\n", i.Hook.Parameters[j][2:])
+
+			} else {
+				ret += fmt.Sprintf("%s = %c", i.Hook.Parameters[j][2:], i.Hook.Values[j].(uint64))
+
+			}
 		default:
 			ret += fmt.Sprintf("%s = 0x%x", i.Hook.Parameters[j], i.Args[j])
 		}
@@ -383,7 +423,7 @@ func (in *Instruction) vfprintfHelper(offset int) string {
 	formatters := util.ParseFormatter(formatString)
 
 	// This updates values and args
-	args := in.vaArgsParse(vaArgsAddr, formatters)
+	args := in.VaArgsParse(vaArgsAddr, formatters)
 
 	// evaluate the formatted string
 	// important because the printf functions need the length of the final string
@@ -398,7 +438,7 @@ func (in *Instruction) vfprintfHelper(offset int) string {
 
 // VaArgsParse will take address to first value, number of values
 // and populate instruction args and hook values
-func (self *Instruction) vaArgsParse(addr uint64, formatters []string) []interface{} {
+func (self *Instruction) VaArgsParse(addr uint64, formatters []string) []interface{} {
 	n := len(formatters)
 	res := make([]interface{}, n)
 
@@ -517,6 +557,7 @@ func NopHook() *Hook {
 		0x0,
 		"",
 		"",
+		false,
 	}
 }
 
@@ -566,7 +607,7 @@ func (emu *WinEmulator) BuildInstruction(addr uint64, size uint32) *Instruction 
 				instruction.Hook.Name = function
 			}
 			instruction.ParseValues()
-
+			instruction.Hook.NoLog = hook.NoLog
 		} else {
 			// function does not have a hook defined, add name to NOP hook
 			instruction.Hook = NopHook()
@@ -657,5 +698,32 @@ func SkipFunctionStdCall(set_return bool, ret uint64) func(emu *WinEmulator, ins
 		}
 
 		return true
+	}
+}
+
+func CallStdFunction(emu *WinEmulator, functionAddress uint64, parameters []uint64) {
+	var currentIP uint64
+	if emu.UcMode == uc.MODE_32 {
+		currentIP, _ = emu.Uc.RegRead(uc.X86_REG_EIP)
+	} else {
+		currentIP, _ = emu.Uc.RegRead(uc.X86_REG_RIP)
+	}
+
+	if emu.UcMode == uc.MODE_32 {
+		i := len(parameters) - 1
+		for i >= 0 {
+			util.PushStack(emu.Uc, emu.UcMode, parameters[i])
+			i -= 1
+		}
+	} else {
+
+	}
+
+	util.PushStack(emu.Uc, emu.UcMode, currentIP) //returns to this after it exits
+
+	if emu.UcMode == uc.MODE_32 {
+		emu.Uc.RegWrite(uc.X86_REG_EIP, functionAddress)
+	} else {
+		emu.Uc.RegWrite(uc.X86_REG_RIP, functionAddress)
 	}
 }

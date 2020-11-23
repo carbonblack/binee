@@ -1,6 +1,8 @@
 package windows
 
 const (
+	CURRENT_PROC_ID = 0x1001
+	//
 	GENERIC_ALL      = 0x10000000
 	GENERIC_EXECUTE  = 0x20000000
 	GENERIC_WRITE    = 0x40000000
@@ -9,11 +11,14 @@ const (
 	CREATE_ALWAYS    = 0x2
 	CREATE_SUSPENDED = 0x4
 	//
-	ERROR_SUCCESS        = 0x0
-	ERROR_FILE_NOT_FOUND = 0x2
-	ERROR_INVALID_HANDLE = 0x6
-	ERROR_MORE_DATA      = 0xea
-	ERROR_NO_MORE_ITEMS  = 0x103
+	ERROR_SUCCESS             = 0x0
+	ERROR_FILE_NOT_FOUND      = 0x2
+	ERROR_INVALID_HANDLE      = 0x6
+	ERROR_INSUFFICIENT_BUFFER = 0x7a
+	ERROR_MORE_DATA           = 0xea
+	ERROR_NO_MORE_ITEMS       = 0x103
+	ERROR_INVALID_ADDRESS     = 0x1E7
+
 	//
 	REG_NONE      = 0x0
 	REG_SZ        = 0x1
@@ -33,6 +38,36 @@ const (
 	STATUS_WAIT_3    = 0x3
 	STATUS_WAIT_63   = 0x3f
 	STATUS_ABANDONED = 0x80
+
+	//
+	WAIT_OBJECT_0    = 0x00000000
+	WAIT_ABANDONED_0 = 0x00000080
+	WAIT_TIMEOUT     = 0x00000102
+	WAIT_FAILED      = 0xFFFFFFFF
+	//
+	MEM_COALESCE_PLACEHOLDERS = 0x00000001
+	MEM_PRESERVE_PLACEHOLDER  = 0x00000002
+	MEM_DECOMMIT              = 0x4000
+	MEM_RELEASE               = 0x8000
+	MEM_COMMIT                = 0x1000
+	MEM_RESERVE               = 0x00002000
+	MEM_RESET                 = 0x80000
+	MEM_RESET_UNDO            = 0x1000000
+	MEM_PRIVATE               = 0x20000
+
+	//
+	S_OK = 0x00000000
+
+	//
+	PAGE_READONLY          = 0x02
+	PAGE_READWRITE         = 0x04
+	PAGE_WRITECOPY         = 0x08
+	PAGE_EXECUTE_READ      = 0x20
+	PAGE_EXECUTE_READWRITE = 0x40
+	PAGE_EXECUTE_WRITECOPY = 0x80
+
+	//
+	INVALID_HANDLE_32 = 0xFFFFFFFF
 )
 
 var EN_LOCALE = map[int]string{
@@ -104,3 +139,13 @@ func GetLocale(id int) map[int]string {
 	//...
 	return EN_LOCALE
 }
+
+var (
+	DEBUGGER_PROCESS = []string{"ollydbg.exe", "ProcessHacker.exe", "tcpview.exe", "autoruns.exe", "autorunsc.exe", "filemon.exe", "procmon.exe", "regmon.exe", "procexp.exe", "idaq.exe", "idaq64.exe", "ImmunityDebugger.exe", "Wireshark.exe", "dumpcap.exe", "HookExplorer.exe", "ImportREC.exe", "PETools.exe", "LordPE.exe", "SysInspector.exe", "proc_analyzer.exe", "sysAnalyzer.exe", "sniff_hit.exe", "windbg.exe", "joeboxcontrol.exe", "joeboxserver.exe", "joeboxserver.exe", "ResourceHacker.exe", "x32dbg.exe", "x64dbg.exe", "Fiddler.exe", "httpdebugger.exe"}
+)
+
+const (
+	//https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ex/sysinfo/class.htm
+	/*SYSTEM_INFORMATION_CLASS*/
+	SystemHandleInformation = 0x10
+)

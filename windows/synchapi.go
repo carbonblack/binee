@@ -28,11 +28,27 @@ func SyncapiHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "OpenMutexA", &Hook{
-		Parameters: []string{"lpMutexAttributes", "bInitialOwner", "lpName"},
-		Fn:         SkipFunctionStdCall(true, 0x1337),
+		Parameters: []string{"lpMutexAttributes", "bInitialOwner", "a:lpName"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+	emu.AddHook("", "OpenMutexW", &Hook{
+		Parameters: []string{"lpMutexAttributes", "bInitialOwner", "w:lpName"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 	emu.AddHook("", "ReleaseSRWLockExclusive", &Hook{
 		Parameters: []string{"SRWLock"},
 		Fn:         SkipFunctionStdCall(false, 0x0),
+	})
+	emu.AddHook("", "SleepEx", &Hook{
+		Parameters: []string{"dwMilliSeconds", "bAlertable"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			emu.Ticks += in.Args[0]
+			return SkipFunctionStdCall(false, 0x0)(emu, in)
+		},
+	})
+
+	emu.AddHook("", "ReleaseMutex", &Hook{
+		Parameters: []string{"hMutex"},
+		Fn:         SkipFunctionStdCall(true, 0),
 	})
 }

@@ -3,11 +3,12 @@ package windows
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/carbonblack/binee/core"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/carbonblack/binee/pefile"
 	"github.com/carbonblack/binee/util"
 )
 
@@ -29,22 +30,6 @@ type StartupInfo struct {
 	StdInput    uint32
 	StdOutput   uint32
 	StdError    uint32
-}
-
-func GetModuleHandle(emu *WinEmulator, in *Instruction, wide bool) uint64 {
-	hinstance := uint64(0)
-	if in.Args[0] == 0x0 {
-		hinstance = emu.MemRegions.ImageAddress
-	} else {
-		var s string
-		if wide {
-			s = strings.ToLower(util.ReadWideChar(emu.Uc, in.Args[0], 0))
-		} else {
-			s = strings.ToLower(util.ReadASCII(emu.Uc, in.Args[0], 0))
-		}
-		return emu.LoadedModules[s]
-	}
-	return hinstance
 }
 
 func getModuleHandleEx(emu *WinEmulator, in *Instruction, wide bool) uint64 {
@@ -104,82 +89,198 @@ func createFile(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmula
 	}
 }
 
-func loadLibrary(emu *WinEmulator, in *Instruction, wide bool) func(emu *WinEmulator, in *Instruction) bool {
-	var err error
+func singleWait(threadChan <-chan int, myChan chan int, closeChannel <-chan struct{}) {
+	select {
+	case val := <-threadChan:
+		myChan <- val
+		break
+	case <-closeChannel:
+		break
+	}
 
-	// read the dll that needs to be loaded
-	var name string
-	var orig string
+}
+func startWaiting(emu *WinEmulator, threads []uint64, curThreadId int, duration int, waitAll bool) {
+	//Create a channel for every thread
+	receiverChannels := make([]chan int, len(threads))
+	closeChannels := make([]chan struct{}, len(threads))
+	returnVal := WAIT_OBJECT_0
+	thread := emu.Scheduler.findThreadyByID(curThreadId)
+	thread.Status = 5
+	for i := range receiverChannels {
+		receiverChannels[i] = make(chan int)
+		closeChannels[i] = make(chan struct{})
+	}
+	//Create the big channel waiting for output
+	mainChannel := make(chan int)
+	for i, threadNum := range threads {
+		thread := emu.Scheduler.findThreadyByID(int(threadNum))
+		if thread.WaitingChannels == nil {
+			thread.WaitingChannels = make([]chan int, 0)
+		}
+		thread.WaitingChannels = append(thread.WaitingChannels, receiverChannels[i])
+		go singleWait(receiverChannels[i], mainChannel, closeChannels[i])
+	}
+	timeout := false
+
+	n := 1
+	timeChannel := make(<-chan time.Time)
+	if waitAll {
+		n = len(threads)
+	}
+
+	if duration != -1 {
+		timeChannel = time.After(time.Duration(duration+1000) * time.Millisecond) //this +1000 here is because we created the channel before the actual waiting starts.
+	}
+	for counter := 0; counter < n; {
+		if timeout {
+			break
+		}
+		select {
+		case val := <-mainChannel:
+			threadIndex := 0
+			for i, tid := range threads {
+				if tid == uint64(val) {
+					threadIndex = i
+				}
+			}
+			returnVal = WAIT_OBJECT_0 + threadIndex
+			counter += 1
+		case <-timeChannel:
+			timeout = true
+			returnVal = WAIT_TIMEOUT
+			break
+		}
+	}
+
+	//In case of WaitAll ==false or timeout, the function will exit and other threads will signal
+	//this will cause panic, so we have to remove the channels waiting there
+
+	for i := range threads {
+		rc := receiverChannels[i]
+		t := emu.Scheduler.findThreadyByID(int(threads[i]))
+		//in case this was the thread that exited.
+		if t == nil {
+			continue
+		}
+		t.RemoveReceiverChannel(rc)
+		closeChannels[i] <- struct{}{}
+	}
+
+	close(mainChannel)
+	if emu.PtrSize == 4 {
+		thread.registers.(*core.Registers32).Eax = uint32(returnVal)
+
+	} else {
+		thread.registers.(*core.Registers64).Rax = uint64(returnVal)
+	}
+	//Thread is ready to run again
+	thread.Status = 0
+}
+
+func waitForSingleObject(emu *WinEmulator, in *Instruction) bool {
+	if emu.Scheduler.findThreadyByID(int(in.Args[0])) == nil {
+		//Thread doesn't exist
+		return SkipFunctionStdCall(true, WAIT_FAILED)(emu, in)
+	}
+	threads := []uint64{in.Args[0]}
+	duration := int(in.Args[1])
+	go startWaiting(emu, threads, emu.Scheduler.CurThreadId(), duration, true)
+	return SkipFunctionStdCall(true, 1)(emu, in)
+}
+
+func waitForMultipleObjects(emu *WinEmulator, in *Instruction) bool {
+	n := in.Args[0]
+	duration := 0
+	waitAll := in.Args[2] == 1
+	var threadNumber uint64
+	var threads []uint64
+	if emu.PtrSize == 4 {
+		duration = int(int32(in.Args[3])) //in case it was -1.
+	} else {
+		duration = int(int64(in.Args[3]))
+	}
+
+	for i := uint64(0); i < n; i++ {
+		offset := in.Args[1] + (i * emu.PtrSize)
+		handleRaw, _ := emu.Uc.MemRead(offset, emu.PtrSize)
+		if emu.PtrSize == 4 {
+			threadNumber = uint64(binary.LittleEndian.Uint32(handleRaw))
+		} else {
+			threadNumber = binary.LittleEndian.Uint64(handleRaw)
+		}
+		if emu.Scheduler.findThreadyByID(int(threadNumber)) != nil {
+			//Thread doesn't exist
+			//A handle may be given for another object, like a process or something.
+			threads = append(threads, threadNumber)
+		}
+	}
+	go startWaiting(emu, threads, emu.Scheduler.CurThreadId(), int(duration), waitAll)
+
+	return SkipFunctionStdCall(true, 1)(emu, in) //We don't really care about the return here, we change it anyway.
+}
+
+func getVersionEx(emu *WinEmulator, in *Instruction) bool {
+	wide := in.Hook.Name[len(in.Hook.Name)-1] == 'W'
+	lpVersionInfo := in.Args[0]
+	if lpVersionInfo == 0 {
+		emu.setLastError(ERROR_INVALID_ADDRESS)
+		return SkipFunctionStdCall(true, 0)(emu, in)
+	}
+
 	if wide {
-		orig = util.ReadWideChar(emu.Uc, in.Args[0], 100)
+		type OsVersionInfoW struct {
+			DwOsVersionInfoSize uint32
+			DwMajorVersion      uint32
+			DwMinorVersion      uint32
+			DwBuildNumber       uint32
+			DwPlatformId        uint32
+			SzCSDVersion        [128 * 2]byte
+		}
+		osVersionInfo := &OsVersionInfoW{}
+		osVersionInfoInterface, err := util.StructRead(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err != nil {
+			emu.setLastError(ERROR_INVALID_ADDRESS)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo = osVersionInfoInterface.(*OsVersionInfoW)
+		if osVersionInfo.DwOsVersionInfoSize != uint32(binary.Size(OsVersionInfoW{})) {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo.DwMajorVersion = uint32(emu.Opts.OsMajorVersion)
+		osVersionInfo.DwMinorVersion = uint32(emu.Opts.OsMinorVersion)
+		osVersionInfo.DwPlatformId = uint32(emu.Opts.PlatformID)
+		err = util.StructWrite(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err == nil {
+			return SkipFunctionStdCall(true, uint64(binary.Size(OsVersionInfoW{})))(emu, in)
+		}
 	} else {
-		orig = util.ReadASCII(emu.Uc, in.Args[0], 100)
-	}
-	name = strings.ToLower(orig)
-	name = strings.Replace(name, "c:\\windows\\system32\\", "", -1)
-	name = strings.Trim(name, "\x00")
-	name = strings.Trim(name, "\u0000")
-
-	if strings.Contains(name, ".dll") == false {
-		name += ".dll"
-	}
-
-	// check if library is already loaded
-	if val, ok := emu.LoadedModules[name]; ok {
-		return SkipFunctionStdCall(true, val)
-	}
-
-	var realdll string
-	// load Apisetschema dll for mapping to real dlls
-	if apisetPath, err := util.SearchFile(emu.SearchPath, "apisetschema.dll"); err == nil {
-		apiset, _ := pefile.LoadPeFile(apisetPath)
-		realdll = apiset.ApiSetLookup(name)
-	}
-
-	var path string
-	if path, err = util.SearchFile(emu.SearchPath, realdll); err != nil {
-		if path, err = util.SearchFile(emu.SearchPath, orig); err != nil {
-			return SkipFunctionStdCall(true, 0x0)
+		type OsVersionInfo struct {
+			DwOsVersionInfoSize uint32
+			DwMajorVersion      uint32
+			DwMinorVersion      uint32
+			DwBuildNumber       uint32
+			DwPlatformId        uint32
+			SzCSDVersion        [128]byte
+		}
+		osVersionInfo := &OsVersionInfo{}
+		osVersionInfoInterface, err := util.StructRead(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err != nil {
+			emu.setLastError(ERROR_INVALID_ADDRESS)
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo = osVersionInfoInterface.(*OsVersionInfo)
+		if osVersionInfo.DwOsVersionInfoSize != uint32(binary.Size(OsVersionInfo{})) {
+			return SkipFunctionStdCall(true, 0)(emu, in)
+		}
+		osVersionInfo.DwMajorVersion = uint32(emu.Opts.OsMajorVersion)
+		osVersionInfo.DwMinorVersion = uint32(emu.Opts.OsMinorVersion)
+		osVersionInfo.DwPlatformId = uint32(emu.Opts.PlatformID)
+		err = util.StructWrite(emu.Uc, lpVersionInfo, osVersionInfo)
+		if err == nil {
+			return SkipFunctionStdCall(true, uint64(binary.Size(OsVersionInfo{})))(emu, in)
 		}
 	}
-
-	if pe, err := pefile.LoadPeFile(path); err != nil {
-		return SkipFunctionStdCall(true, 0x0)
-	} else {
-		pe.SetImageBase(emu.NextLibAddress)
-		emu.LoadedModules[name] = emu.NextLibAddress
-
-		err = emu.Uc.MemWrite(pe.ImageBase(), pe.RawHeaders)
-		for i := 0; i < len(pe.Sections); i++ {
-			err = emu.Uc.MemWrite(pe.ImageBase()+uint64(pe.Sections[i].VirtualAddress), pe.Sections[i].Raw)
-		}
-
-		// get total size of DLL in memory
-		peSize := 0
-		for i := 0; i < len(pe.Sections); i++ {
-			peSize += int(pe.Sections[i].VirtualAddress + pe.Sections[i].Size)
-		}
-
-		for _, funcs := range pe.Exports {
-			realAddr := uint64(funcs.Rva) + pe.ImageBase()
-			if _, ok := emu.libFunctionAddress[name]; !ok {
-				emu.libFunctionAddress[name] = make(map[string]uint64)
-			}
-			if _, ok := emu.libAddressFunction[name]; !ok {
-				emu.libAddressFunction[name] = make(map[uint64]string)
-			}
-			emu.libFunctionAddress[name][funcs.Name] = realAddr
-			emu.libAddressFunction[name][realAddr] = funcs.Name
-		}
-
-		// set address for next DLL
-		for i := 0; i <= peSize; i += 4096 {
-			emu.NextLibAddress += 4096
-		}
-
-		return SkipFunctionStdCall(true, pe.ImageBase())
-	}
-
+	return SkipFunctionStdCall(true, 0)(emu, in)
 }
 
 func KernelbaseHooks(emu *WinEmulator) {
@@ -267,6 +368,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 				return SkipFunctionStdCall(true, 0x0)(emu, in)
 			}
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "FlsSetValue", &Hook{
 		Parameters: []string{"dwFlsIndex", "lpFlsData"},
@@ -291,14 +393,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "GetCommandLineW", &Hook{
-		Parameters: []string{},
-		Fn:         SkipFunctionStdCall(true, emu.Argv),
-	})
-	emu.AddHook("", "GetCommandLineA", &Hook{
-		Parameters: []string{},
-		Fn:         SkipFunctionStdCall(true, emu.Argv),
-	})
+
 	emu.AddHook("", "GetConsoleMode", &Hook{
 		Parameters: []string{"hConsoleHandle", "lpMode"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -345,13 +440,13 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x2)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{}})
+	emu.AddHook("", "GetLastError", &Hook{Parameters: []string{}, NoLog: true})
 	emu.AddHook("", "GetLastActivePopup", &Hook{
 		Parameters: []string{"hWnd"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "GetModuleFileNameA", &Hook{
-		Parameters: []string{"hModule", "lpFilename", "nSize"},
+		Parameters: []string{"hModule", "a:lpFilename", "nSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			f := ""
 			if in.Args[0] == 0x0 {
@@ -365,7 +460,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "GetModuleFileNameW", &Hook{
-		Parameters: []string{"hModule", "lpFilename", "nSize"},
+		Parameters: []string{"hModule", "w:lpFilename", "nSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			f := ""
 			if in.Args[0] == 0x0 {
@@ -378,12 +473,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, uint64(len(f)+2))(emu, in)
 		},
 	})
-	emu.AddHook("", "GetModuleHandleA", &Hook{
-		Parameters: []string{"a:lpModuleName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return SkipFunctionStdCall(true, GetModuleHandle(emu, in, false))(emu, in)
-		},
-	})
+
 	emu.AddHook("", "GetModuleHandleExA", &Hook{
 		Parameters: []string{"dwFlags", "a:lpModuleName", "phModule"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -391,21 +481,20 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "GetModuleHandleExW", &Hook{
-		Parameters: []string{"dwFlags", "a:lpModuleName", "phModule"},
+		Parameters: []string{"dwFlags", "w:lpModuleName", "phModule"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			return SkipFunctionStdCall(true, getModuleHandleEx(emu, in, true))(emu, in)
-		},
-	})
-	emu.AddHook("", "GetModuleHandleW", &Hook{
-		Parameters: []string{"w:lpModuleName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return SkipFunctionStdCall(true, GetModuleHandle(emu, in, true))(emu, in)
 		},
 	})
 
 	emu.AddHook("", "GetProcessHeap", &Hook{
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x123456),
+		NoLog:      true,
+	})
+	emu.AddHook("", "GetProcessHeaps", &Hook{
+		Parameters: []string{"NumberOfHeaps", "ProcessHeaps"},
+		NoLog:      true,
 	})
 	emu.AddHook("", "GetProcessIoCounters", &Hook{
 		Parameters: []string{"hProcess", "lpIoCounters"},
@@ -415,17 +504,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "GetProcAddress", &Hook{
-		Parameters: []string{"hModule", "a:lpProcName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			name := util.ReadASCII(emu.Uc, in.Args[1], 0)
-			if dllname := emu.lookupLibByAddress(in.Args[0]); dllname != "" {
-				addr := emu.libFunctionAddress[dllname][name]
-				return SkipFunctionStdCall(true, addr)(emu, in)
-			}
-			return SkipFunctionStdCall(true, 0x0)(emu, in)
-		},
-	})
+
 	emu.AddHook("", "GetStringTypeW", &Hook{
 		Parameters: []string{"dwInfoType", "lpSrcStr", "cchSrc", "lpCharType"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -591,24 +670,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, 0x0)(emu, in)
 		},
 	})
-	emu.AddHook("", "GetVersion", &Hook{
-		Parameters: []string{},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			var ret = 0x0
-			ret = ret | emu.Opts.OsMajorVersion
-			ret = ret << 16
-			ret = ret | emu.Opts.OsMinorVersion
-			return SkipFunctionStdCall(true, uint64(ret))(emu, in)
-		},
-	})
-	emu.AddHook("", "GetVersionExA", &Hook{
-		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
-	})
-	emu.AddHook("", "GetVersionExW", &Hook{
-		Parameters: []string{"lpVersionInformation"},
-		Fn:         SkipFunctionStdCall(true, 0x12),
-	})
+
 	emu.AddHook("", "GetWindowsDirectoryA", &Hook{
 		Parameters: []string{"lpBuffer", "uSize"},
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
@@ -632,13 +694,13 @@ func KernelbaseHooks(emu *WinEmulator) {
 	emu.AddHook("", "InitializeCriticalSectionEx", &Hook{
 		Parameters: []string{"lpCriticalSection", "dwSpinCount", "Flags"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
+		NoLog:      true,
 	})
 	emu.AddHook("", "InitializeCriticalSectionAndSpinCount", &Hook{
 		Parameters: []string{"lpCriticalSection", "dwSpinCount"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 	emu.AddHook("", "InitializeSListHead", &Hook{Parameters: []string{"ListHead"}})
-	emu.AddHook("", "IsDebuggerPresent", &Hook{Parameters: []string{}, Fn: SkipFunctionStdCall(true, 0x0)})
 	emu.AddHook("", "IsValidCodePage", &Hook{
 		Parameters: []string{"CodePage"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
@@ -665,30 +727,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Parameters: []string{"lpLocaleName", "dwMapFlags", "w:lpSrcStr", "cchSrc", "lpDestStr", "cchDest", "lpVersionInformation", "lpReserved", "sortHandle"},
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
-	emu.AddHook("", "LoadLibraryA", &Hook{
-		Parameters: []string{"a:lpFileName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, false)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryExA", &Hook{
-		Parameters: []string{"a:lpFileName", "hFile", "dwFlags"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, false)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryExW", &Hook{
-		Parameters: []string{"w:lpFileName", "hFile", "dwFlags"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, true)(emu, in)
-		},
-	})
-	emu.AddHook("", "LoadLibraryW", &Hook{
-		Parameters: []string{"w:lpFileName"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			return loadLibrary(emu, in, true)(emu, in)
-		},
-	})
+
 	emu.AddHook("", "lstrlenA", &Hook{Parameters: []string{"a:lpString"}})
 	emu.AddHook("", "lstrlenW", &Hook{Parameters: []string{"w:lpString"}})
 	emu.AddHook("", "MapPredefinedHandleInternal", &Hook{
@@ -734,6 +773,7 @@ func KernelbaseHooks(emu *WinEmulator) {
 			emu.setLastError(in.Args[0])
 			return SkipFunctionStdCall(false, 0x1)(emu, in)
 		},
+		NoLog: true,
 	})
 	emu.AddHook("", "SetThreadAffinityMask", &Hook{
 		Parameters: []string{"hThread", "dwThreadAffinityMask"},
@@ -744,12 +784,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
 			emu.Ticks += in.Args[0]
 			return SkipFunctionStdCall(false, 0x0)(emu, in)
-		},
-	})
-	emu.AddHook("", "TerminateProcess", &Hook{
-		Parameters: []string{"hProcess", "uExitCode"},
-		Fn: func(emu *WinEmulator, instr *Instruction) bool {
-			return false
 		},
 	})
 	emu.AddHook("", "TlsAlloc", &Hook{
@@ -771,10 +805,6 @@ func KernelbaseHooks(emu *WinEmulator) {
 		Fn:         SkipFunctionStdCall(true, 0x1),
 	})
 
-	emu.AddHook("", "VirtualQuery", &Hook{
-		Parameters: []string{"lpAddress", "lpBuffer", "dwLength"},
-		Fn:         SkipFunctionStdCall(true, 0x1),
-	})
 	emu.AddHook("", "VerSetConditionMask", &Hook{
 		Parameters: []string{},
 		Fn:         SkipFunctionStdCall(false, 0x1),
@@ -813,37 +843,115 @@ func KernelbaseHooks(emu *WinEmulator) {
 		},
 	})
 	emu.AddHook("", "_CorExeMain", &Hook{Parameters: []string{}})
-	emu.AddHook("", "GetCPHashNode", &Hook{Parameters: []string{}})
-	emu.AddHook("", "GetCPFileNameFromRegistry", &Hook{Parameters: []string{"CodePage", "w:FileName", "FileNameSize"}})
-	emu.AddHook("", "LocalFree", &Hook{Parameters: []string{"hMem"}})
-	emu.AddHook("", "MultiByteToWideChar", &Hook{
-		Parameters: []string{"CodePage", "dwFlags", "a:lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
-		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
-
-			// check if multibyte function is only getting buffer size
-			if in.Args[5] == 0x0 {
-				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
-			} else {
-				wc := util.ASCIIToWinWChar(mb)
-				emu.Uc.MemWrite(in.Args[4], wc)
-				return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
-			}
-		},
+	emu.AddHook("", "GetCPHashNode", &Hook{
+		Parameters: []string{"", ""},
 	})
+	emu.AddHook("", "GetCPFileNameFromRegistry", &Hook{Parameters: []string{"CodePage", "w:FileName", "FileNameSize"}})
+
 	emu.AddHook("", "NlsValidateLocale", &Hook{Parameters: []string{"*Unknown*"}})
 	emu.AddHook("", "PathCchRemoveFileSpec", &Hook{Parameters: []string{"pszPath", "cchPath"}})
+
+	emu.AddHook("", "WaitForMultipleObjects", &Hook{
+		Parameters: []string{"nCount", "lpHandles", "b:bWaitAll", "dwMilliseconds"},
+		Fn:         waitForMultipleObjects,
+	})
+	emu.AddHook("", "WaitForSingleObject", &Hook{
+		Parameters: []string{"hHandle", "dwMilliseconds"},
+		Fn:         waitForSingleObject,
+	})
+
+	emu.AddHook("", "PathUnExpandEnvStringsW", &Hook{
+		Parameters: []string{"w:pszPath", "pszPath", "cchBuf"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
+	emu.AddHook("", "GetLocalTime", &Hook{
+		Parameters: []string{"lpSystemTime"},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			systemTime := struct {
+				Year         uint16
+				Month        uint16
+				DayOfWeek    uint16
+				Day          uint16
+				Hour         uint16
+				Minute       uint16
+				Second       uint16
+				Milliseconds uint16
+			}{
+				uint16(emu.Opts.SystemTime.Year),
+				uint16(emu.Opts.SystemTime.Month),
+				uint16(emu.Opts.SystemTime.DayOfWeek),
+				uint16(emu.Opts.SystemTime.Day),
+				uint16(emu.Opts.SystemTime.Hour),
+				uint16(emu.Opts.SystemTime.Minute),
+				uint16(emu.Opts.SystemTime.Second),
+				uint16(emu.Opts.SystemTime.Millisecond),
+			}
+			buf := new(bytes.Buffer)
+			binary.Write(buf, binary.LittleEndian, &systemTime)
+			emu.Uc.MemWrite(in.Args[0], buf.Bytes())
+			return SkipFunctionStdCall(false, 0)(emu, in)
+		},
+	})
+
+	emu.AddHook("", "GetVersion", &Hook{
+		Parameters: []string{},
+		Fn: func(emu *WinEmulator, in *Instruction) bool {
+			var ret = 0x0
+			ret = ret | emu.Opts.OsMajorVersion
+			ret = ret << 16
+			ret = ret | emu.Opts.OsMinorVersion
+			return SkipFunctionStdCall(true, uint64(ret))(emu, in)
+		},
+	})
+
+	emu.AddHook("", "GetVersionExA", &Hook{
+		Parameters: []string{"lpVersionInformation"},
+		Fn:         getVersionEx,
+	})
+
+	emu.AddHook("", "GetVersionExW", &Hook{
+		Parameters: []string{"lpVersionInformation"},
+		Fn:         getVersionEx,
+	})
+
 	emu.AddHook("", "WideCharToMultiByte", &Hook{
 		Parameters: []string{"CodePage", "dwFlags", "w:lpWideCharStr", "cchWideChar", "lpMultiByteStr", "cbMultiByte", "lpDefaultChar", "lpUsedDefaultChar"},
+		//Fn:         SkipFunctionStdCall(true, 0x15),
 		Fn: func(emu *WinEmulator, in *Instruction) bool {
-			mb := util.ReadASCII(emu.Uc, in.Args[2], 0)
-
+			wideStr := util.ReadWideChar(emu.Uc, in.Args[2], 0)
+			lpMultiByteStr := in.Args[4]
 			// check if multibyte function is only getting buffer size
 			if in.Args[5] == 0x0 {
-				return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
+				return SkipFunctionStdCall(true, uint64(len(wideStr))*2+2)(emu, in)
 			} else {
-				return SkipFunctionStdCall(true, 0x1)(emu, in)
+				bytes, _ := emu.Uc.MemRead(in.Args[2], uint64(2*len(wideStr)))
+				maxLength := int(math.Min(float64(len(bytes)), float64(in.Args[5]*2)))
+				emu.Uc.MemWrite(lpMultiByteStr, append(bytes[:maxLength], 0, 0))
+				return SkipFunctionStdCall(true, uint64(maxLength))(emu, in)
 			}
 		},
 	})
+	emu.AddHook("", "MultiByteToWideChar", &Hook{
+		Parameters: []string{"CodePage", "dwFlags", "lpMultiByteStr", "cbMultiByte", "lpWideCharStr", "cchWideChar"},
+		Fn:         SkipFunctionStdCall(true, 0x1),
+		//Fn: func(emu *WinEmulator, in *Instruction) bool {
+		//	mb := util.ReadWideChar(emu.Uc, in.Args[2], 0)
+		//
+		//	// check if multibyte function is only getting buffer size
+		//	if in.Args[5] == 0x0 {
+		//		return SkipFunctionStdCall(true, uint64(len(mb))*2+2)(emu, in)
+		//	} else {
+		//		wc := util.ASCIIToWinWChar(mb)
+		//		emu.Uc.MemWrite(in.Args[4], wc)
+		//		return SkipFunctionStdCall(true, uint64(len(wc))+2)(emu, in)
+		//	}
+		//},
+	})
+
+	emu.AddHook("", "LdrResolveDelayLoadedAPI", &Hook{
+		Parameters: []string{"base", "desc", "dllhook", "syshook", "addr", "flags"},
+		Fn:         SkipFunctionStdCall(true, 0),
+	})
+
 }

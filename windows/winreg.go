@@ -237,6 +237,10 @@ func WinregHooks(emu *WinEmulator) {
 			return SkipFunctionStdCall(true, ERROR_SUCCESS)(emu, in)
 		},
 	})
+	emu.AddHook("", "RegSetValueExA", &Hook{
+		Parameters: []string{"hKey", "a:lpValueName", "Reserved", "dwType", "a:lpData", "cbData"},
+		Fn:         SkipFunctionStdCall(true, ERROR_SUCCESS),
+	})
 
 	emu.AddHook("", "RegUnLoadKeyW", &Hook{
 		Parameters: []string{"hKey", "lpSubKey"},

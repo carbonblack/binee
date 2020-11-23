@@ -391,6 +391,7 @@ func (emu *WinEmulator) updateImageBase(pe *pefile.PeFile) {
 	}
 
 	// set address for next DLL
+	//TODO Make it an equation
 	for i := 0; i <= dllSize; i += 4096 {
 		emu.NextLibAddress += 4096
 	}
@@ -408,6 +409,12 @@ func (emu *WinEmulator) extractExports(pe *pefile.PeFile) {
 		if _, ok := emu.libAddressFunction[name]; !ok {
 			emu.libAddressFunction[name] = make(map[uint64]string)
 		}
+
+		if _, ok := emu.libOrdinalFunction[name]; !ok {
+			emu.libOrdinalFunction[name] = make(map[uint16]string)
+		}
+
+		emu.libOrdinalFunction[name][funcs.Ordinal] = funcs.Name
 		emu.libFunctionAddress[name][funcs.Name] = realAddr
 		emu.libAddressFunction[name][realAddr] = funcs.Name
 	}
@@ -438,13 +445,15 @@ func (emu *WinEmulator) initializeListHead(address uint64) {
 }
 
 //build an LdrEntry and then write it to the emulator memory
-func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 {
+func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile) uint64 {
+	index := uint64(emu.LdrIndex)
 	if emu.PtrSize == 4 {
 		LdrEntry := PebLdrDataTableEntry32{}
 		LdrEntry.BaseDllName = UnicodeString32{}
 		LdrEntry.FullDllName = UnicodeString32{}
 
 		wRealDll := util.ASCIIToWinWChar(lpe.RealName)
+		wRealDll = append(wRealDll, 0, 0)
 		nameBuf := bytes.NewBuffer(wRealDll)
 		nameLength := len(wRealDll)
 		nameAddr := emu.Heap.Malloc(uint64(nameLength))
@@ -472,6 +481,8 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrBuf := new(bytes.Buffer)
 		binary.Write(LdrBuf, binary.LittleEndian, LdrEntry)
 		ldrEntryAddress := emu.Heap.Malloc(uint64(binary.Size(LdrEntry)))
+		emu.Uc.MemWrite(ldrEntryAddress, LdrBuf.Bytes())
+		emu.LdrIndex++
 		return ldrEntryAddress
 	} else {
 		LdrEntry := PebLdrDataTableEntry64{}
@@ -506,6 +517,7 @@ func (emu *WinEmulator) createLdrEntry(lpe *pefile.PeFile, index uint64) uint64 
 		LdrBuf := new(bytes.Buffer)
 		binary.Write(LdrBuf, binary.LittleEndian, LdrEntry)
 		ldrEntryAddress := emu.Heap.Malloc(uint64(binary.Size(LdrEntry)))
+		emu.LdrIndex++
 		return ldrEntryAddress
 	}
 	return 0
@@ -729,6 +741,10 @@ func (emu *WinEmulator) initPEB(pe *pefile.PeFile) uint64 {
 		peb.OsMajorVersion = int32(emu.Opts.OsMajorVersion)
 		peb.OsMinorVersion = int32(emu.Opts.OsMinorVersion)
 		peb.ImageBaseAddress = uint32(pe.ImageBase())
+		imagePathName := UnicodeString32{}
+		cmdLine := UnicodeString32{} //to be filled later
+		upp := RtlUserProcessParameters32{CommandLine: cmdLine, ImagePathName: imagePathName}
+		peb.ProcessParameters = uint32(emu.Heap.Malloc(uint64(binary.Size(upp))))
 		//peb.ReadOnlySharedMemoryBase = uint32(emu.Heap.Malloc(4096))
 		//peb.ReadOnlyStaticServerData = peb.ReadOnlySharedMemoryBase + 0x4b0
 		//peb.CsrServerReadOnlySharedMemoryBase = emu.Heap.Malloc(4096)
@@ -842,11 +858,16 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 
 		// TIB, only 32 bit for now
 		tib := ThreadInformationBlock32{}
-		tib.ProcessId = 0x1001
+		tib.ProcessId = CURRENT_PROC_ID
 		tib.CurrentThreadId = 0x2001
 		tib.StackBaseHigh = uint32(emu.MemRegions.StackAddress)
 		tib.StackLimit = uint32(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
 		tib.LinearAddressOfTEB = uint32(emu.MemRegions.TibAddress)
+		tib.AddressOfThreadLocalStorage = uint32(emu.Heap.Malloc(4096))
+		TLSaddress := make([]byte, 4)
+		TLSaddressPointer := emu.Heap.Malloc(4096)
+		binary.LittleEndian.PutUint32(TLSaddress, uint32(TLSaddressPointer))
+		emu.Uc.MemWrite(uint64(tib.AddressOfThreadLocalStorage), TLSaddress)
 		//check this one above, might not be right
 		tib.CurrentLocale = uint32(emu.Opts.CurrentLocale)
 		tib.AddressOfPEB = uint32(pebAddress)
@@ -905,7 +926,7 @@ func (emu *WinEmulator) initGdt(pe *pefile.PeFile) error {
 
 		// TIB
 		tib := ThreadInformationBlock64{}
-		tib.ProcessId = 0x1001
+		tib.ProcessId = CURRENT_PROC_ID
 		tib.CurrentThreadId = 0x2001
 		tib.StackBaseHigh = uint64(emu.MemRegions.StackAddress)
 		tib.StackLimit = uint64(emu.MemRegions.StackAddress - emu.MemRegions.StackSize)
@@ -1006,6 +1027,22 @@ func (emu *WinEmulator) initRegisters() error {
 		}
 	}
 
+	return nil
+}
+func (emu *WinEmulator) loadLibrary(peMap map[string]*pefile.PeFile, apiset *pefile.PeFile, name string, peCheck map[string]bool) error {
+	retrieveDllFromDisk(peMap, apiset, emu.SearchPath, name)
+	for _, pe := range peMap {
+		if peCheck[pe.RealName] {
+			continue
+		}
+		peCheck[pe.RealName] = true
+		emu.updateImageBase(pe)
+		emu.extractExports(pe)
+		ldrEntry := emu.createLdrEntry(pe)
+		emu.writeLdrEntry(ldrEntry, "Load")
+		emu.writeLdrEntry(ldrEntry, "Memory")
+		emu.writeLdrEntry(ldrEntry, "Initialization")
+	}
 	return nil
 }
 
@@ -1115,13 +1152,13 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		}
 	}
 
-	ldrEntry := emu.createLdrEntry(pe, 0)
+	ldrEntry := emu.createLdrEntry(pe)
 	emu.writeLdrEntry(ldrEntry, "Memory")
 	emu.writeLdrEntry(ldrEntry, "Initialization")
 	var lpe *pefile.PeFile
-	for i, key := range ldrList {
+	for _, key := range ldrList {
 		lpe = peMap[key]
-		ldrEntry = emu.createLdrEntry(lpe, uint64(i+1))
+		ldrEntry = emu.createLdrEntry(lpe)
 		emu.writeLdrEntry(ldrEntry, "Load")
 		emu.writeLdrEntry(ldrEntry, "Memory")
 		emu.writeLdrEntry(ldrEntry, "Initialization")
@@ -1129,44 +1166,147 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 
 	// update the imports table for the current PE so that imports resolve correctly
 	for _, importInfo := range pe.Imports {
-		dll := peMap[importInfo.DllName]
+
+		dllName := importInfo.DllName
+		dll := peMap[dllName]
+		funcName := importInfo.FuncName
+		ordinalNum := importInfo.Ordinal
+		var val pefile.ForwardedExport
+		var ok bool
 		if dll == nil {
 			continue
 		}
-
-		if export, ok := dll.ExportNameMap[importInfo.FuncName]; ok {
-			realAddr := uint64(export.Rva) + dll.ImageBase()
-			pe.SetImportAddress(importInfo, realAddr)
+		if ordinalNum != 0 {
+			val, ok = dll.ForwardedExportsByOrdinal[ordinalNum]
+		} else {
+			val, ok = dll.ForwardedExports[funcName]
 		}
+		//Checking if forwarded export, keep looping until we find the func
+		if ok {
+			dllName = val.DllName + ".dll"
+			funcName = val.FuncName
+			ordinalNum := val.Ordinal
+			for true {
+				if _, ok := peMap[dllName]; !ok {
+					//The dll required is not loaded, loading logic should be added here
+					break
+				}
+				/*Handle by Ordinal*/
+				if ordinalNum != 0 {
+					if _, ok := peMap[dllName].ForwardedExportsByOrdinal[ordinalNum]; !ok {
+						//Func is not forwarded anymore
+						break
+					}
+					dllName = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].DllName + ".dll"
+					funcName = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].FuncName
+					ordinalNum = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].Ordinal
+				} else /*Handle by Name*/ {
+					if _, ok := peMap[dllName].ForwardedExports[funcName]; !ok {
+						//Func is not forwarded anymore
+						break
+					}
+					dllName = peMap[dllName].ForwardedExports[funcName].DllName + ".dll"
+					funcName = peMap[dllName].ForwardedExports[funcName].FuncName
+					ordinalNum = peMap[dllName].ForwardedExports[funcName].Ordinal
+				}
+
+			}
+		}
+		dll = peMap[dllName]
+		if dll == nil {
+			emu.loadLibrary(peMap, apiset, dllName, peCheck)
+		}
+		dll = peMap[dllName]
+		if dll == nil {
+			continue
+		}
+		var realAddr uint64
+		if ordinalNum != 0 {
+			if _, ok := dll.ExportOrdinalMap[int(ordinalNum)]; ok {
+				realAddr = uint64(dll.ExportOrdinalMap[int(ordinalNum)].Rva) + dll.ImageBase()
+			}
+		} else {
+
+			if _, ok := dll.ExportNameMap[funcName]; ok {
+				realAddr = uint64(dll.ExportNameMap[funcName].Rva) + dll.ImageBase()
+			}
+		}
+		pe.SetImportAddress(importInfo, realAddr)
 	}
 
 	// resolve imports between dlls, for each loaded dll
-	for _, dll := range peMap {
+	for _, currentDll := range peMap {
 		// loop through current DLL and update all imports
-		for _, importInfo := range dll.Imports {
+		for _, importInfo := range currentDll.Imports {
 
-			if importInfo.DllName == dll.Name {
+			if importInfo.DllName == currentDll.Name {
 				continue
 			}
 
 			importedDll := peMap[importInfo.DllName]
-
 			if importedDll == nil {
 				continue
 			}
-
-			if importInfo.FuncName != "" {
-				realAddr := uint64(importedDll.ExportNameMap[importInfo.FuncName].Rva) + importedDll.ImageBase()
-				dll.SetImportAddress(importInfo, realAddr)
+			dllName := importInfo.DllName
+			dll := peMap[dllName]
+			funcName := importInfo.FuncName
+			ordinalNum := importInfo.Ordinal
+			var val pefile.ForwardedExport
+			var ok bool
+			if dll == nil {
+				continue
+			}
+			if ordinalNum != 0 {
+				val, ok = dll.ForwardedExportsByOrdinal[ordinalNum]
 			} else {
-				// make sure the ordinal exists before deref'ing it
-				// this is likely a bug in the way the pefile parser handles export ordinals
-				if _, ok := importedDll.ExportOrdinalMap[int(importInfo.Ordinal)]; ok {
-					realAddr := uint64(importedDll.ExportOrdinalMap[int(importInfo.Ordinal)].Rva) + importedDll.ImageBase()
-					dll.SetImportAddress(importInfo, realAddr)
+				val, ok = dll.ForwardedExports[funcName]
+			}
+			//Checking if forwarded export, keep looping until we find the func
+			if ok {
+				dllName = val.DllName + ".dll"
+				funcName = val.FuncName
+				ordinalNum := val.Ordinal
+				for true {
+					if _, ok := peMap[dllName]; !ok {
+						//The dll required is not loaded, loading logic should be added here
+						break
+					}
+					/*Handle by Ordinal*/
+					if ordinalNum != 0 {
+						if _, ok := peMap[dllName].ForwardedExportsByOrdinal[ordinalNum]; !ok {
+							//Func is not forwarded anymore
+							break
+						}
+						dllName = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].DllName + ".dll"
+						funcName = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].FuncName
+						ordinalNum = peMap[dllName].ForwardedExportsByOrdinal[ordinalNum].Ordinal
+					} else /*Handle by Name*/ {
+						if _, ok := peMap[dllName].ForwardedExports[funcName]; !ok {
+							//Func is not forwarded anymore
+							break
+						}
+						dllName = peMap[dllName].ForwardedExports[funcName].DllName + ".dll"
+						funcName = peMap[dllName].ForwardedExports[funcName].FuncName
+						ordinalNum = peMap[dllName].ForwardedExports[funcName].Ordinal
+					}
+
 				}
 			}
-
+			dll = peMap[dllName]
+			if dll == nil {
+				continue
+			}
+			var realAddr uint64
+			if ordinalNum != 0 {
+				if _, ok := dll.ExportOrdinalMap[int(ordinalNum)]; ok {
+					realAddr = uint64(dll.ExportOrdinalMap[int(ordinalNum)].Rva) + dll.ImageBase()
+				}
+			} else {
+				if _, ok := dll.ExportNameMap[funcName]; ok {
+					realAddr = uint64(dll.ExportNameMap[funcName].Rva) + dll.ImageBase()
+				}
+			}
+			currentDll.SetImportAddress(importInfo, realAddr)
 		}
 	}
 
@@ -1183,6 +1323,17 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		}
 	}
 
+	//Some dlls has to be loaded and they don't cause problems
+	//TODO Take as input
+	loadDlls := []string{"msvcrt.dll", "shell32.dll"}
+	mainLoaded := make(map[string]bool)
+	for _, dll := range loadDlls {
+		if actualDll, ok := peMap[dll]; ok {
+			emu.setupDllMainCallstack(actualDll)
+			mainLoaded[dll] = true
+		}
+	}
+
 	//setup dllmain stack
 	if calldllmain {
 		//this is the incorrect order, need to make sure kernel32 starts first so it gets called last
@@ -1190,14 +1341,16 @@ func (emu *WinEmulator) initPe(pe *pefile.PeFile, path string, arch, mode int, a
 		for i := len(ldrList) - 1; i >= 0; i-- {
 			name := ldrList[i]
 			dll := peMap[name]
-			if !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
+			_, loaded := mainLoaded[name] //Check if name exists in map, so it was previously added.
+			if !loaded && !strings.HasPrefix(name, "api") && !strings.HasPrefix(name, "kernelbase") && !strings.HasPrefix(name, "ucrt") {
 				if dll.EntryPoint() != 0 {
 					emu.setupDllMainCallstack(dll)
+					mainLoaded[name] = true
 				}
 			}
 		}
 	}
-
+	emu.NumMainCallDll = uint(len(mainLoaded))
 	// write the target PE file to memory
 	emu.Uc.MemWrite(pe.ImageBase(), pe.RawHeaders)
 	for i := 0; i < len(pe.Sections); i++ {
